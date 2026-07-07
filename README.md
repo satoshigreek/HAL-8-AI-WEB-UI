@@ -1,5 +1,7 @@
 # HAL 8 AI Web UI
 
+🌐 **Website: [satoshigreek.github.io/HAL-8-AI-WEB-UI](https://satoshigreek.github.io/HAL-8-AI-WEB-UI/)**
+
 ![HAL 8 Banner](./banner.png)
 
 **The HAL 8 web interface** — a self-hosted AI chat platform carrying the HAL 8 design language, built on [Open WebUI](https://github.com/open-webui/open-webui) v0.10.2. It supports Ollama and any OpenAI-compatible API, with built-in RAG, RBAC, plugins, channels and more.
