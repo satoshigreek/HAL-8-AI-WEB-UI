@@ -1,6 +1,6 @@
 {
-  "name": "Open WebUI",
-  "short_name": "WebUI",
+  "name": "HAL 8",
+  "short_name": "HAL 8",
   "icons": [
     {
       "src": "/static/web-app-manifest-192x192.png",
@@ -15,7 +15,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
+  "theme_color": "#07100C",
+  "background_color": "#07100C",
   "display": "standalone"
 }
