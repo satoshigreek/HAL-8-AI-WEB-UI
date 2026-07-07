@@ -1,6 +1,28 @@
 @reference "./tailwind.css";
 
 @font-face {
+	font-family: 'Space Grotesk';
+	src: url('/assets/fonts/SpaceGrotesk-Variable.woff2') format('woff2');
+	font-weight: 300 700;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'JetBrainsMono';
+	src: url('/assets/fonts/JetBrainsMono-Variable.woff2') format('woff2');
+	font-weight: 100 800;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'JetBrainsMono';
+	src: url('/assets/fonts/JetBrainsMono-Variable-Italic.woff2') format('woff2');
+	font-weight: 100 800;
+	font-style: italic;
+	font-display: swap;
+}
+
+@font-face {
 	font-family: 'Inter';
 	src: url('/assets/fonts/Inter-Variable.ttf');
 	font-display: swap;
@@ -119,7 +141,7 @@ textarea::placeholder {
 }
 
 .font-primary {
-	font-family: 'Archivo', 'Vazirmatn', sans-serif;
+	font-family: 'Space Grotesk', 'Archivo', 'Vazirmatn', sans-serif;
 }
 
 .drag-region {
@@ -389,7 +411,7 @@ input[type='number'] {
 }
 
 .bg-gray-950-90 {
-	background-color: rgba(var(--color-gray-950, #0d0d0d), 0.9);
+	background-color: rgba(var(--color-gray-950, #07100c), 0.9);
 }
 
 .ProseMirror {
@@ -723,8 +745,8 @@ body {
 }
 
 .dark body {
-	background: #171717;
-	color: #eee;
+	background: #07100c;
+	color: #eaf3ec;
 }
 
 /* Position the handle relative to each LI */
