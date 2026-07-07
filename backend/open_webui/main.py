@@ -2443,10 +2443,10 @@ async def get_manifest_json():
         return {
             'name': app.state.WEBUI_NAME,
             'short_name': app.state.WEBUI_NAME,
-            'description': f'{app.state.WEBUI_NAME} is an open, extensible, user-friendly interface for AI that adapts to your workflow.',
+            'description': f'{app.state.WEBUI_NAME} — the HAL 8 AI interface: metered AI inference and agents on your own infrastructure.',
             'start_url': '/',
             'display': 'standalone',
-            'background_color': '#343541',
+            'background_color': '#07100C',
             'icons': [
                 {
                     'src': '/static/logo.png',

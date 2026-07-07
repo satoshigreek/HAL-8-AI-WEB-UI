@@ -1,6 +1,6 @@
 [project]
-name = "open-webui"
-description = "Open WebUI"
+name = "hal-8-ai-web-ui"
+description = "HAL 8 AI Web UI (based on Open WebUI)"
 authors = [
     { name = "Timothy Jaeryang Baek", email = "tim@openwebui.com" }
 ]
