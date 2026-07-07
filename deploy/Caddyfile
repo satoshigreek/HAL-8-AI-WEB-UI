@@ -1,0 +1,3 @@
+{$HAL8_DOMAIN:chat.hal8.ai} {
+	reverse_proxy hal8:8080
+}

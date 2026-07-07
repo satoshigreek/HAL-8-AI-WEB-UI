@@ -1,0 +1,37 @@
+services:
+  hal8:
+    image: ghcr.io/satoshigreek/hal-8-ai-web-ui:main
+    build: .
+    restart: unless-stopped
+    environment:
+      # Required — sign sessions; generate once with: openssl rand -hex 32
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:?set WEBUI_SECRET_KEY in .env}
+      # Public origin, used for links in emails/notifications and opensearch
+      - WEBUI_URL=https://${HAL8_DOMAIN:-chat.hal8.ai}
+      # New signups default to the 'pending' role and need admin approval,
+      # which keeps the deployment within the upstream license's 50-user cap.
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
+    volumes:
+      - hal8-data:/app/backend/data
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      - HAL8_DOMAIN=${HAL8_DOMAIN:-chat.hal8.ai}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - hal8
+
+volumes:
+  hal8-data:
+  caddy-data:
+  caddy-config:
