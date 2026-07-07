@@ -19,6 +19,8 @@ Everything else — features, configuration, deployment — works exactly like u
 
 ## Quick start
 
+> Taking it live on a public domain with HTTPS? See **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+
 ### Docker
 
 ```bash
