@@ -1,0 +1,28 @@
+#cloud-config
+# HAL 8 — one-shot server setup for Oracle Cloud (Ubuntu, Ampere A1 or AMD).
+# Paste this file's contents into "Advanced options -> Cloud-init user data"
+# when creating the instance. On first boot it installs Docker, opens the
+# host firewall, clones the repo and launches HAL 8 behind Caddy (auto-HTTPS).
+#
+# Before or right after boot, also:
+#   1. VCN Security List: add ingress rules for TCP 80 and 443 from 0.0.0.0/0
+#      (Oracle blocks them at the network level by default).
+#   2. DNS: point chat.hal8.ai (A record) at the instance's public IP.
+#      Using a different hostname? Edit HAL8_DOMAIN below before pasting.
+
+package_update: true
+packages:
+  - git
+  - curl
+
+runcmd:
+  # Docker + compose plugin
+  - curl -fsSL https://get.docker.com | sh
+  # Oracle Ubuntu images reject inbound 80/443 in iptables — allow and persist
+  - iptables -I INPUT -m state --state NEW -p tcp --dport 80 -j ACCEPT
+  - iptables -I INPUT -m state --state NEW -p tcp --dport 443 -j ACCEPT
+  - netfilter-persistent save || true
+  # Fetch and launch HAL 8
+  - git clone https://github.com/satoshigreek/HAL-8-AI-WEB-UI.git /opt/hal8
+  - bash -c 'printf "WEBUI_SECRET_KEY=%s\nHAL8_DOMAIN=chat.hal8.ai\n" "$(openssl rand -hex 32)" > /opt/hal8/.env'
+  - bash -c 'cd /opt/hal8 && docker compose -f docker-compose.prod.yaml up -d --build > /var/log/hal8-first-launch.log 2>&1'
