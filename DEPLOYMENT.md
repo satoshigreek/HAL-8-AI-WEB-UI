@@ -3,6 +3,10 @@
 This guide takes the HAL 8 web UI live on your own server at a public URL
 (e.g. `https://chat.hal8.ai`) with automatic HTTPS.
 
+> **Deploying on Oracle Cloud's Always Free tier?** Follow the click-by-click
+> guide in [deploy/ORACLE.md](./deploy/ORACLE.md) — it uses a cloud-init script
+> so the server configures itself with no terminal commands.
+
 ## What you need
 
 - A Linux server (VPS or dedicated) with **Docker + the compose plugin** installed,
