@@ -1,6 +1,7 @@
 # HAL 8 AI Web UI
 
 🌐 **Website: [satoshigreek.github.io/HAL-8-AI-WEB-UI](https://satoshigreek.github.io/HAL-8-AI-WEB-UI/)**
+🚀 **App: [hal8.odyssey-works.io](https://hal8.odyssey-works.io)**
 
 ![HAL 8 Banner](./banner.png)
 
