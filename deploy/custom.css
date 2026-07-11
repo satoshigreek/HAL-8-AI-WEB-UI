@@ -1,0 +1,170 @@
+/* ============================================================
+   HAL 8 — mobile app-feel layer (custom.css)
+   Served via /static/custom.css (loaded by app.html on every page).
+   Bind-mounted from deploy/custom.css in docker-compose.prod.yaml,
+   so styling tweaks deploy with `git pull` — no image rebuild.
+   Desktop is untouched: everything lives behind a max-width query.
+   ============================================================ */
+
+@media (max-width: 768px) {
+	/* ---------- typography: iOS-scale base ---------- */
+	/* Bump the root size 16 -> 17px (iOS body default), preserving the
+	   in-app UI-scale slider via --app-text-scale. */
+	html {
+		font-size: calc(17px * var(--app-text-scale, 1)) !important;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	/* Chat prose: comfortable reading rhythm */
+	.markdown-prose,
+	.markdown-prose-sm {
+		font-size: 1rem !important;
+		line-height: 1.65 !important;
+	}
+
+	/* ---------- composer: floating pill above the home bar ---------- */
+	#message-input-container {
+		border-radius: 26px !important;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35) !important;
+	}
+	/* keep the composer clear of the iPhone home indicator */
+	#message-input-container,
+	form:has(> #message-input-container) {
+		margin-bottom: max(env(safe-area-inset-bottom), 8px);
+	}
+	/* 16px+ input font kills iOS focus-zoom */
+	#chat-input,
+	#chat-input.tiptap,
+	input,
+	textarea,
+	select {
+		font-size: 16px !important;
+	}
+	#chat-input {
+		padding: 4px 2px !important;
+		line-height: 1.5 !important;
+	}
+
+	/* ---------- touch targets: 44pt minimum ---------- */
+	#message-input-container button,
+	[role='menu'] button,
+	[role='menu'] a,
+	.modal button {
+		min-height: 44px;
+	}
+	#message-input-container button {
+		min-width: 44px;
+	}
+	nav button {
+		min-height: 44px;
+	}
+
+	/* ---------- header: slim, translucent, blurred ---------- */
+	nav.drag-region {
+		backdrop-filter: blur(14px);
+		-webkit-backdrop-filter: blur(14px);
+		padding-top: max(env(safe-area-inset-top), 4px) !important;
+	}
+
+	/* ---------- menus & dropdowns: iOS-style bottom sheets ---------- */
+	/* Generic dropdowns portal to <body> with role="menu" and inline
+	   floating positions; !important in a stylesheet outranks inline. */
+	body > [role='menu'],
+	body > div > [role='menu'] {
+		position: fixed !important;
+		top: auto !important;
+		left: 0 !important;
+		right: 0 !important;
+		bottom: 0 !important;
+		transform: none !important;
+		width: 100% !important;
+		max-width: 100% !important;
+		max-height: 72dvh !important;
+		border-radius: 22px 22px 0 0 !important;
+		padding: 10px 10px calc(14px + env(safe-area-inset-bottom)) !important;
+		box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.55) !important;
+		overflow-y: auto !important;
+		overscroll-behavior: contain;
+	}
+	/* solid sheet surface per theme */
+	body > [role='menu'],
+	body > div > [role='menu'] {
+		background: #ffffff !important;
+	}
+	html.dark body > [role='menu'],
+	html.dark body > div > [role='menu'] {
+		background: #14241b !important;
+	}
+	/* stretch the portalled dropdown card to fill the sheet */
+	body > [role='menu'] > *,
+	body > div > [role='menu'] > *,
+	body > [role='menu'] > * > *,
+	body > div > [role='menu'] > * > * {
+		width: 100% !important;
+		max-width: 100% !important;
+		background: transparent !important;
+		box-shadow: none !important;
+		border: none !important;
+	}
+
+	/* grabber handle */
+	body > [role='menu']::before,
+	body > div > [role='menu']::before {
+		content: '';
+		display: block;
+		width: 40px;
+		height: 4px;
+		border-radius: 999px;
+		background: color-mix(in srgb, currentColor 25%, transparent);
+		margin: 2px auto 10px;
+	}
+	/* menu rows: big, legible, rounded */
+	[role='menu'] button,
+	[role='menu'] a,
+	[role='menu'] [role='menuitem'] {
+		font-size: 16px !important;
+		border-radius: 14px !important;
+		padding-top: 11px !important;
+		padding-bottom: 11px !important;
+	}
+
+	/* model-selector panel (anchored, already full-width): bigger rows */
+	[role='listbox'] button,
+	[aria-label='model-selector'] button {
+		font-size: 16px !important;
+		padding-top: 11px !important;
+		padding-bottom: 11px !important;
+	}
+
+	/* ---------- modals: full-width bottom sheets ---------- */
+	.modal {
+		align-items: flex-end !important;
+	}
+	.modal > div {
+		margin: auto 0 0 0 !important;
+		width: 100% !important;
+		max-width: 100% !important;
+		border-radius: 24px 24px 0 0 !important;
+		border: none !important;
+		max-height: 94dvh;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+	/* square off any inner rounded card so the sheet reads as one surface */
+	.modal > div > :first-child {
+		border-bottom-left-radius: 0 !important;
+		border-bottom-right-radius: 0 !important;
+	}
+
+	/* ---------- scrollbars & feel ---------- */
+	* {
+		scrollbar-width: none;
+	}
+	*::-webkit-scrollbar {
+		display: none;
+	}
+	body {
+		overscroll-behavior-y: none;
+	}
+}

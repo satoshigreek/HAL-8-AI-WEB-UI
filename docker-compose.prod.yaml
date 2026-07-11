@@ -13,6 +13,9 @@ services:
       - ENABLE_SIGNUP=${ENABLE_SIGNUP:-true}
     volumes:
       - hal8-data:/app/backend/data
+      # styling override layer — edit deploy/custom.css and re-run `up -d`,
+      # no image rebuild needed
+      - ./deploy/custom.css:/app/backend/open_webui/static/custom.css:ro
     expose:
       - "8080"
 

@@ -80,6 +80,10 @@ docker run --rm -v hal-8-ai-web-ui_hal8-data:/data -v "$PWD":/backup alpine \
 
 All persistent state lives in the `hal8-data` Docker volume (SQLite + uploads).
 
+Styling overrides (including the mobile app-feel layer) live in
+`deploy/custom.css`, bind-mounted into the container — edit it, `git pull`
+on the server, and re-run the `up -d` command; no image rebuild needed.
+
 ## Connecting models
 
 HAL 8 serves the interface; it needs at least one model provider. In
