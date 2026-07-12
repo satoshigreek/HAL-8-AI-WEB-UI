@@ -42,7 +42,7 @@
 	import { getFileContentById } from '$lib/apis/files';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, onNavigate } from '$app/navigation';
 	import { updated } from '$app/state';
 
 	import i18n, { initI18n, getLanguages, changeLanguage } from '$lib/i18n';
@@ -101,6 +101,28 @@
 			await unregisterServiceWorkers();
 			location.href = to.url.href;
 		}
+	});
+
+	// iOS-style push/pop page transitions on phones, via the View Transitions
+	// API (Safari 18+); the slide animations live in static/custom.css and key
+	// off html[data-nav-direction]. Skipped on desktop and for reduced motion.
+	onNavigate((navigation) => {
+		if (typeof document.startViewTransition !== 'function') return;
+		if (!window.matchMedia('(max-width: 768px)').matches) return;
+		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+		document.documentElement.dataset.navDirection =
+			typeof navigation.delta === 'number' && navigation.delta < 0 ? 'back' : 'forward';
+
+		return new Promise((resolve) => {
+			const transition = document.startViewTransition(async () => {
+				resolve();
+				await navigation.complete;
+			});
+			transition.finished.finally(() => {
+				delete document.documentElement.dataset.navDirection;
+			});
+		});
 	});
 
 	setContext('i18n', i18n);

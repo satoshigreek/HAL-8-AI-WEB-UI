@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { flyAndScale } from '$lib/utils/transitions';
+	import { sheetDrag, sheetSlide, isMobileSheet } from '$lib/utils/sheet';
 	import { tick } from 'svelte';
+
+	// On phones the menu presents as a bottom sheet (see custom.css), so it
+	// slides up/down instead of the desktop fly-and-scale.
+	const menuTransition = (node, params) =>
+		isMobileSheet() ? sheetSlide(node) : flyAndScale(node, params);
 
 	/** Whether the dropdown is open */
 	export let show = false;
@@ -66,6 +72,8 @@
 
 	function positionContent() {
 		if (!triggerEl || !contentEl) return;
+		// Bottom-sheet mode pins the menu via custom.css — skip anchoring.
+		if (isMobileSheet()) return;
 		const rect = triggerEl.getBoundingClientRect();
 
 		contentEl.style.position = 'fixed';
@@ -187,12 +195,13 @@
 	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	<div
 		use:portal
+		use:sheetDrag={{ onDismiss: close }}
 		bind:this={contentEl}
 		class={contentClass}
 		role="menu"
 		style:max-height={maxHeight}
 		style:overflow-y="auto"
-		transition:flyAndScale
+		transition:menuTransition
 		on:click={(e) => e.stopPropagation()}
 		on:pointerdown={(e) => e.stopPropagation()}
 	>
