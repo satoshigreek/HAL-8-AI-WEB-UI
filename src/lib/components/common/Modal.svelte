@@ -3,6 +3,7 @@
 	import { fade } from 'svelte/transition';
 
 	import { flyAndScale } from '$lib/utils/transitions';
+	import { sheetDrag } from '$lib/utils/sheet';
 	import * as FocusTrap from 'focus-trap';
 	export let show = true;
 	export let size = 'md';
@@ -129,6 +130,11 @@
 		}}
 	>
 		<div
+			use:sheetDrag={{
+				onDismiss: () => {
+					show = false;
+				}
+			}}
 			class="m-auto max-w-full {sizeToWidth(size)} {size !== 'full'
 				? 'mx-2'
 				: ''} shadow-3xl min-h-fit scrollbar-hidden {className} border border-white dark:border-gray-850"
