@@ -29,7 +29,8 @@ services:
     environment:
       # Vector MAINNET endpoints (defaults in the repo point to testnet)
       - VECTOR_OGMIOS_URL=https://ogmios.vector.mainnet.apexfusion.org
-      - VECTOR_KOIOS_URL=https://koios.vector.apexfusion.org/
+      # no trailing slash — the server appends /api/v1/... itself
+      - VECTOR_KOIOS_URL=https://koios.vector.apexfusion.org
       - VECTOR_SUBMIT_URL=https://submit.vector.mainnet.apexfusion.org/api/submit/tx
       - VECTOR_EXPLORER_URL=https://explorer.vector.mainnet.apexfusion.org
       # Conservative safety limits (lovelace): 10 AP3X per tx, 50 AP3X daily
