@@ -84,6 +84,22 @@ Styling overrides (including the mobile app-feel layer) live in
 `deploy/custom.css`, bind-mounted into the container — edit it, `git pull`
 on the server, and re-run the `up -d` command; no image rebuild needed.
 
+## Apex Fusion chain tools
+
+`docker-compose.prod.yaml` also runs two internal-only sidecars that give
+every model access to the Apex Fusion tri-chain:
+
+- **apex-mcp** — the official [Vector MCP server](https://github.com/Apex-Fusion/mcp-server)
+  (18+ tools: balances, UTxOs, transactions, agent registry), built from
+  source at deploy time and pointed at Vector **mainnet**. Wallet mnemonics
+  are passed per-call by the model, never stored on the server; spend
+  limits are configured conservatively (10 AP3X/tx, 50 AP3X/day).
+- **apex-tools** — [mcpo](https://github.com/open-webui/mcpo), Open WebUI's
+  MCP-to-OpenAPI adapter, exposing those tools at `http://apex-tools:8000`.
+
+Register it once in **Admin Panel → Settings → Tools** as an OpenAPI tool
+server with URL `http://apex-tools:8000` (no auth), available to all users.
+
 ## Connecting models
 
 HAL 8 serves the interface; it needs at least one model provider. In

@@ -19,6 +19,40 @@ services:
     expose:
       - "8080"
 
+  # Apex Fusion Vector MCP server — 18+ chain tools for AI agents.
+  # Built from the official repo; internal-only (no published ports).
+  # Wallet mnemonics are passed per-call by the client, never stored here,
+  # so with no wallet configured the server is effectively read-only.
+  apex-mcp:
+    build: https://github.com/Apex-Fusion/mcp-server.git
+    restart: unless-stopped
+    environment:
+      # Vector MAINNET endpoints (defaults in the repo point to testnet)
+      - VECTOR_OGMIOS_URL=https://ogmios.vector.mainnet.apexfusion.org
+      - VECTOR_KOIOS_URL=https://koios.vector.apexfusion.org/
+      - VECTOR_SUBMIT_URL=https://submit.vector.mainnet.apexfusion.org/api/submit/tx
+      - VECTOR_EXPLORER_URL=https://explorer.vector.mainnet.apexfusion.org
+      # Conservative safety limits (lovelace): 10 AP3X per tx, 50 AP3X daily
+      - VECTOR_SPEND_LIMIT_PER_TX=10000000
+      - VECTOR_SPEND_LIMIT_DAILY=50000000
+      - VECTOR_AUDIT_LOG_PATH=/data/vector-audit-log.json
+    volumes:
+      - apex-mcp-data:/data
+    expose:
+      - "3000"
+
+  # mcpo — Open WebUI's MCP-to-OpenAPI adapter. Bridges the Apex MCP
+  # server's SSE transport to a plain OpenAPI tool server that HAL 8
+  # consumes natively (registered as http://apex-tools:8000).
+  apex-tools:
+    image: ghcr.io/open-webui/mcpo:main
+    restart: unless-stopped
+    command: --port 8000 --server-type "sse" -- http://apex-mcp:3000/sse
+    depends_on:
+      - apex-mcp
+    expose:
+      - "8000"
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -36,5 +70,6 @@ services:
 
 volumes:
   hal8-data:
+  apex-mcp-data:
   caddy-data:
   caddy-config:
