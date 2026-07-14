@@ -1,0 +1,462 @@
+#!/usr/bin/env python3
+"""Blockchain MCP health check.
+
+For every enabled first-party blockchain MCP in
+config/blockchain-mcp.registry.yaml this script:
+
+  1. initializes the MCP (stdio subprocess or streamable-HTTP endpoint)
+  2. retrieves the full tool manifest (paginated tools/list)
+  3. records the tool count
+  4. hashes the manifest (sha256 over sorted (name, description,
+     inputSchema), canonical JSON: sorted keys, compact separators)
+  5. runs the registry-declared harmless operation (read-only; never signs,
+     never broadcasts, never changes state, never triggers a write approval)
+  6. records latency
+  7. emits human-readable and machine-readable (--json) output
+  8. compares the live manifest hash against the registry and reports DRIFT
+
+Servers requiring OAuth (base-mcp) are expected to answer with an auth
+challenge to an unauthenticated client; that outcome is reported as
+"auth_required" and counts as a pass of the OAuth-requirement check. Wallet
+or balance queries against base-mcp run only after a user completes OAuth
+interactively — never from this script.
+
+Usage:
+  scripts/blockchain-mcp-healthcheck [--only SERVER_ID] [--json PATH]
+                                     [--update] [--timeout SECS]
+  scripts/blockchain-mcp-healthcheck --chain <chain_id>   # availability query
+
+--update rewrites manifest_hash / tool_count / last_* fields in the registry
+(in place, comment-preserving) after a successful check.
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+PROJECT_DIR = Path(os.environ.get("CLAUDE_PROJECT_DIR", Path(__file__).resolve().parent.parent))
+REGISTRY_PATH = PROJECT_DIR / "config" / "blockchain-mcp.registry.yaml"
+MCP_JSON_PATH = PROJECT_DIR / ".mcp.json"
+PROTOCOL_VERSION = "2025-06-18"
+CLIENT_INFO = {"name": "hal8-blockchain-mcp-healthcheck", "version": "1.0.0"}
+
+
+# --------------------------------------------------------------------------
+# Pure helpers (unit-tested in tests/blockchain-mcp/)
+# --------------------------------------------------------------------------
+
+def canonical_manifest_hash(tools):
+    """sha256 over the sorted tool list, canonical JSON."""
+    canon = [
+        {"name": t.get("name"),
+         "description": t.get("description", ""),
+         "inputSchema": t.get("inputSchema", {})}
+        for t in sorted(tools, key=lambda t: t.get("name", ""))
+    ]
+    blob = json.dumps(canon, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def diff_inventory(expected, actual):
+    """Return (added, removed) tool-name lists between manifests."""
+    exp, act = set(expected or []), set(actual or [])
+    return sorted(act - exp), sorted(exp - act)
+
+
+def classify_http_error(status):
+    """Map an HTTP status to a health-check outcome."""
+    if status in (401, 403):
+        return "auth_required"
+    if status in (404, 405):
+        return "error"
+    if status >= 500:
+        return "unreachable"
+    return "error"
+
+
+def unsupported_chain_response(chain_id, last_verified=None):
+    return {
+        "available": False,
+        "reason": "FIRST_PARTY_MCP_UNAVAILABLE",
+        "communitySubstitutionAllowed": False,
+        "chain": chain_id,
+        "lastVerified": last_verified or datetime.now(timezone.utc).date().isoformat(),
+    }
+
+
+def parse_sse_or_json(body, content_type):
+    """Parse a streamable-HTTP MCP response body (SSE or plain JSON)."""
+    if "text/event-stream" in (content_type or ""):
+        for line in body.splitlines():
+            line = line.strip()
+            if line.startswith("data:"):
+                data = line[5:].strip()
+                if data:
+                    return json.loads(data)
+        raise ValueError("no data event in SSE response")
+    return json.loads(body)
+
+
+# --------------------------------------------------------------------------
+# Registry / .mcp.json access
+# --------------------------------------------------------------------------
+
+def load_registry():
+    import yaml
+    with open(REGISTRY_PATH, "r", encoding="utf-8") as fh:
+        return yaml.safe_load(fh)
+
+
+def load_mcp_json():
+    with open(MCP_JSON_PATH, "r", encoding="utf-8") as fh:
+        return json.load(fh)["mcpServers"]
+
+
+def enabled_targets(registry):
+    """Yield (server_id, chain_id, entry_dict, is_docs_server)."""
+    for chain_id, entry in registry["chains"].items():
+        if entry.get("status") == "enabled" and entry.get("enabled"):
+            yield entry["mcp_server_id"], chain_id, entry, False
+            docs = entry.get("docs_server")
+            if docs:
+                yield docs["mcp_server_id"], chain_id, docs, True
+
+
+# --------------------------------------------------------------------------
+# MCP clients
+# --------------------------------------------------------------------------
+
+class StdioMcpClient:
+    def __init__(self, command, args, env, timeout):
+        self.timeout = timeout
+        self.proc = subprocess.Popen(
+            [command] + list(args),
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env={**os.environ, **(env or {})}, text=True, bufsize=1)
+        self._id = 0
+
+    def request(self, method, params=None):
+        self._id += 1
+        msg = {"jsonrpc": "2.0", "id": self._id, "method": method,
+               "params": params or {}}
+        self.proc.stdin.write(json.dumps(msg) + "\n")
+        self.proc.stdin.flush()
+        deadline = time.time() + self.timeout
+        while time.time() < deadline:
+            line = self.proc.stdout.readline()
+            if not line:
+                raise RuntimeError("MCP server closed stdout")
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                resp = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # non-protocol noise on stdout
+            if resp.get("id") == self._id:
+                if "error" in resp:
+                    raise RuntimeError(f"MCP error: {resp['error']}")
+                return resp.get("result", {})
+        raise TimeoutError(f"timeout waiting for {method}")
+
+    def notify(self, method, params=None):
+        self.proc.stdin.write(json.dumps(
+            {"jsonrpc": "2.0", "method": method, "params": params or {}}) + "\n")
+        self.proc.stdin.flush()
+
+    def close(self):
+        try:
+            self.proc.terminate()
+            self.proc.wait(timeout=5)
+        except Exception:
+            self.proc.kill()
+
+
+class HttpMcpClient:
+    def __init__(self, endpoint, timeout):
+        self.endpoint = endpoint
+        self.timeout = timeout
+        self.session_id = None
+        self._id = 0
+
+    def _post(self, payload):
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "MCP-Protocol-Version": PROTOCOL_VERSION,
+        }
+        if self.session_id:
+            headers["Mcp-Session-Id"] = self.session_id
+        req = urllib.request.Request(
+            self.endpoint, data=json.dumps(payload).encode("utf-8"),
+            headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            sid = resp.headers.get("Mcp-Session-Id")
+            if sid:
+                self.session_id = sid
+            body = resp.read().decode("utf-8", "replace")
+            if resp.status == 202 or not body.strip():
+                return None
+            return parse_sse_or_json(body, resp.headers.get("Content-Type", ""))
+
+    def request(self, method, params=None):
+        self._id += 1
+        resp = self._post({"jsonrpc": "2.0", "id": self._id, "method": method,
+                           "params": params or {}})
+        if resp is None:
+            raise RuntimeError(f"empty response for {method}")
+        if "error" in resp:
+            raise RuntimeError(f"MCP error: {resp['error']}")
+        return resp.get("result", {})
+
+    def notify(self, method, params=None):
+        try:
+            self._post({"jsonrpc": "2.0", "method": method, "params": params or {}})
+        except Exception:
+            pass  # notification delivery is best-effort
+
+    def close(self):
+        pass
+
+
+def make_client(server_id, entry, mcp_servers, timeout):
+    transport = entry.get("transport") or entry.get("health_check", {}).get("method")
+    if transport == "http":
+        return HttpMcpClient(entry["endpoint"], timeout)
+    cfg = mcp_servers.get(server_id)
+    if not cfg or "command" not in cfg:
+        raise RuntimeError(f"no stdio config for {server_id} in .mcp.json")
+    return StdioMcpClient(cfg["command"], cfg.get("args", []),
+                          cfg.get("env", {}), timeout)
+
+
+# --------------------------------------------------------------------------
+# Health check
+# --------------------------------------------------------------------------
+
+def check_server(server_id, chain_id, entry, mcp_servers, timeout):
+    result = {
+        "server_id": server_id,
+        "chain": chain_id,
+        "transport": entry.get("transport") or "http",
+        "endpoint": entry.get("endpoint"),
+        "auth_method": (entry.get("health_check") or {}).get("auth_method", "none"),
+        "status": "error",
+        "tool_count": None,
+        "manifest_sha256": None,
+        "drift": None,
+        "inventory_added": [],
+        "inventory_removed": [],
+        "harmless_call": None,
+        "latency_ms": None,
+        "error": None,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+    t0 = time.time()
+    client = None
+    try:
+        client = make_client(server_id, entry, mcp_servers, timeout)
+        client.request("initialize", {
+            "protocolVersion": PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": CLIENT_INFO,
+        })
+        client.notify("notifications/initialized")
+
+        tools, cursor = [], None
+        while True:
+            params = {"cursor": cursor} if cursor else {}
+            page = client.request("tools/list", params)
+            tools.extend(page.get("tools", []))
+            cursor = page.get("nextCursor")
+            if not cursor:
+                break
+
+        result["tool_count"] = len(tools)
+        result["manifest_sha256"] = canonical_manifest_hash(tools)
+
+        expected_hash = entry.get("manifest_hash")
+        expected_tools = (entry.get("tool_inventory") or {}).get("tools", [])
+        if expected_hash:
+            result["drift"] = result["manifest_sha256"] != expected_hash
+        added, removed = diff_inventory(expected_tools, [t["name"] for t in tools])
+        result["inventory_added"], result["inventory_removed"] = added, removed
+
+        harmless = (entry.get("health_check") or {}).get("harmless_call")
+        if harmless and harmless.get("name"):
+            t1 = time.time()
+            call = client.request("tools/call", {
+                "name": harmless["name"],
+                "arguments": harmless.get("arguments", {}),
+            })
+            result["harmless_call"] = {
+                "name": harmless["name"],
+                "ok": not call.get("isError", False),
+                "latency_ms": round((time.time() - t1) * 1000),
+            }
+        result["status"] = "drift" if result["drift"] else "ok"
+        result["tools"] = sorted(t["name"] for t in tools)
+    except urllib.error.HTTPError as exc:
+        result["status"] = classify_http_error(exc.code)
+        result["error"] = f"HTTP {exc.code}"
+        if result["status"] == "auth_required" and entry.get("requires_oauth"):
+            # Unauthenticated rejection is the EXPECTED outcome for an
+            # OAuth-gated server: the auth requirement is verified.
+            result["status"] = "auth_required"
+            result["error"] = None
+            result["oauth_requirement_verified"] = True
+    except urllib.error.URLError as exc:
+        result["status"] = "unreachable"
+        result["error"] = str(exc.reason)
+    except (TimeoutError, RuntimeError, OSError, ValueError) as exc:
+        result["status"] = "error" if "MCP error" in str(exc) else "unreachable"
+        result["error"] = str(exc)[:300]
+    finally:
+        if client:
+            client.close()
+    result["latency_ms"] = round((time.time() - t0) * 1000)
+    return result
+
+
+# --------------------------------------------------------------------------
+# Registry update (comment-preserving, line-targeted)
+# --------------------------------------------------------------------------
+
+def update_registry_file(text, chain_id, is_docs, fields):
+    """Replace scalar health fields inside one chain block, preserving
+    comments/layout. Returns updated text."""
+    lines = text.splitlines(keepends=True)
+    out = []
+    in_chains = False
+    current_chain = None
+    in_docs = False
+    chain_key_re = re.compile(r"^  (\w[\w-]*):\s*$")
+    for line in lines:
+        if re.match(r"^chains:\s*$", line):
+            in_chains = True
+        elif in_chains:
+            m = chain_key_re.match(line)
+            if m:
+                current_chain = m.group(1)
+                in_docs = False
+            elif re.match(r"^    docs_server:\s*$", line):
+                in_docs = True
+        if in_chains and current_chain == chain_id and in_docs == is_docs:
+            for key, value in fields.items():
+                m = re.match(rf"^(\s+){re.escape(key)}:\s*\S.*$|^(\s+){re.escape(key)}:\s*$", line)
+                if m:
+                    indent = m.group(1) or m.group(2)
+                    rendered = "null" if value is None else (
+                        json.dumps(value) if isinstance(value, str) else
+                        str(value).lower() if isinstance(value, bool) else str(value))
+                    line = f"{indent}{key}: {rendered}\n"
+                    break
+        out.append(line)
+    return "".join(out)
+
+
+def apply_updates(results):
+    text = REGISTRY_PATH.read_text(encoding="utf-8")
+    today = datetime.now(timezone.utc).date().isoformat()
+    for r in results:
+        if r["status"] not in ("ok", "drift"):
+            continue
+        is_docs = r["server_id"] == "base-docs"
+        chain = r["chain"]
+        text = update_registry_file(text, chain, is_docs, {
+            "manifest_hash": r["manifest_sha256"],
+            "tool_count": r["tool_count"],
+            "last_status": r["status"],
+            "last_checked": r["checked_at"],
+            "last_latency_ms": r["latency_ms"],
+        })
+        if not is_docs:
+            text = update_registry_file(text, chain, False,
+                                        {"last_verified": today})
+    REGISTRY_PATH.write_text(text, encoding="utf-8")
+
+
+# --------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--only", help="check a single server id")
+    ap.add_argument("--json", dest="json_path", help="write JSON report here")
+    ap.add_argument("--update", action="store_true",
+                    help="write results back into the registry")
+    ap.add_argument("--timeout", type=float, default=120.0)
+    ap.add_argument("--chain", help="print availability for a chain id and exit")
+    args = ap.parse_args()
+
+    registry = load_registry()
+
+    if args.chain:
+        entry = registry["chains"].get(args.chain)
+        if entry is None:
+            print(json.dumps({"available": False, "reason": "UNKNOWN_CHAIN",
+                              "chain": args.chain}))
+            return 2
+        if entry.get("status") != "enabled":
+            print(json.dumps(unsupported_chain_response(
+                args.chain, entry.get("last_verified")), indent=2))
+            return 0
+        print(json.dumps({"available": True, "chain": args.chain,
+                          "server_id": entry["mcp_server_id"],
+                          "lastVerified": entry.get("last_verified")}, indent=2))
+        return 0
+
+    mcp_servers = load_mcp_json()
+    results = []
+    for server_id, chain_id, entry, is_docs in enabled_targets(registry):
+        if args.only and server_id != args.only:
+            continue
+        print(f"[healthcheck] {server_id} ({'docs, ' if is_docs else ''}"
+              f"{entry.get('transport') or 'http'}) ...", flush=True)
+        results.append(check_server(server_id, chain_id, entry, mcp_servers,
+                                    args.timeout))
+
+    # Human-readable summary
+    print()
+    print(f"{'SERVER':<14}{'STATUS':<15}{'TOOLS':<7}{'LATENCY':<10}{'DRIFT':<7}NOTE")
+    failures = 0
+    for r in results:
+        drift = "-" if r["drift"] is None else ("YES" if r["drift"] else "no")
+        note = r["error"] or ""
+        if r.get("oauth_requirement_verified"):
+            note = "OAuth requirement verified (unauthenticated client rejected)"
+        if r["status"] in ("error", "unreachable", "drift"):
+            failures += 1
+        if r["inventory_added"] or r["inventory_removed"]:
+            note += (f" manifest changed: +{r['inventory_added']}"
+                     f" -{r['inventory_removed']}")
+        print(f"{r['server_id']:<14}{r['status']:<15}"
+              f"{str(r['tool_count'] or '-'):<7}"
+              f"{str(r['latency_ms']) + 'ms':<10}{drift:<7}{note}")
+
+    if args.json_path:
+        Path(args.json_path).write_text(
+            json.dumps({"checked_at": datetime.now(timezone.utc).isoformat(),
+                        "results": results}, indent=2), encoding="utf-8")
+        print(f"\nJSON report: {args.json_path}")
+
+    if args.update:
+        apply_updates(results)
+        print("registry updated with manifest hashes / health results")
+
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

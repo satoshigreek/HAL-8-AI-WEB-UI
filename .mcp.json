@@ -1,0 +1,44 @@
+{
+  "mcpServers": {
+    "base-mcp": {
+      "type": "http",
+      "url": "https://mcp.base.org"
+    },
+    "base-docs": {
+      "type": "http",
+      "url": "https://docs.base.org/mcp"
+    },
+    "bnb-chain": {
+      "command": "npx",
+      "args": ["-y", "@bnb-chain/mcp@1.5.1"],
+      "env": {
+        "BNBCHAIN_MCP_SKIP_TRANSFER_CONFIRMATION": "false"
+      }
+    },
+    "solana": {
+      "type": "http",
+      "url": "https://mcp.solana.com"
+    },
+    "stellar-xdr": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "deno@2.9.2",
+        "run",
+        "--allow-read",
+        "https://raw.githubusercontent.com/stellar/mcp-stellar-xdr/1e010ef44c2887e664cb07c3605ffec378177a8b/mcp-stellar-xdr.ts"
+      ]
+    },
+    "ton": {
+      "command": "npx",
+      "args": ["-y", "@ton/mcp@0.1.15-alpha.23"],
+      "env": {
+        "NETWORK": "testnet"
+      }
+    },
+    "near": {
+      "command": "npx",
+      "args": ["-y", "@nearai/near-mcp@0.0.35", "run"]
+    }
+  }
+}

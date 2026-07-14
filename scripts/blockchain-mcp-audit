@@ -1,0 +1,314 @@
+#!/usr/bin/env python3
+"""Blockchain MCP audit + policy hook.
+
+Wired as a Claude Code PreToolUse/PostToolUse hook (.claude/settings.json)
+for every blockchain MCP server. Responsibilities:
+
+  pre  - append an audit record for the attempted call and DENY any tool
+         classified level >= 2 in config/blockchain-tool-policy.yaml (or in
+         the built-in fallback deny list if PyYAML is unavailable), plus any
+         write-class tool that targets a mainnet network (level 3 backstop).
+  post - append an audit record with the (redacted) result.
+
+Secrets (private keys, mnemonics, tokens, keystore contents) are redacted
+before anything is written to the audit log. The log lives in
+.claude/blockchain-audit/ (gitignored).
+
+This hook is a policy backstop: the primary controls are the permission
+allow/deny lists in .claude/settings.json. Prompt content cannot alter
+either layer — only a reviewed commit can.
+"""
+
+import json
+import os
+import re
+import sys
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+PROJECT_DIR = Path(os.environ.get("CLAUDE_PROJECT_DIR", ".")).resolve()
+POLICY_PATH = PROJECT_DIR / "config" / "blockchain-tool-policy.yaml"
+AUDIT_DIR_DEFAULT = ".claude/blockchain-audit"
+
+BLOCKCHAIN_SERVERS = {
+    "base-mcp": "base",
+    "base-docs": "base",
+    "bnb-chain": "bnb-chain",
+    "solana": "solana",
+    "stellar-xdr": "stellar",
+    "ton": "ton",
+    "near": "near",
+}
+
+# Fallback deny list used when the policy YAML cannot be parsed (e.g. PyYAML
+# missing on a contributor machine). Must stay in sync with every level >= 2
+# tool in config/blockchain-tool-policy.yaml — enforced by
+# tests/blockchain-mcp/test_security.py.
+FALLBACK_DENY = {
+    "bnb-chain": {
+        "approve_token_spending", "confirm_transfer", "create_erc20_token",
+        "get_address_from_private_key", "transfer_erc1155", "transfer_erc20",
+        "transfer_native_token", "transfer_nft", "write_contract",
+        "register_erc8004_agent", "set_erc8004_agent_uri",
+        "gnfd_create_bucket", "gnfd_create_file", "gnfd_create_folder",
+        "gnfd_create_payment_account", "gnfd_delete_bucket",
+        "gnfd_delete_object", "gnfd_deposit_to_payment",
+        "gnfd_withdraw_from_payment",
+    },
+    "ton": {
+        "send_raw_transaction", "generate_ton_proof", "set_active_wallet",
+        "remove_wallet", "agentic_cancel_root_wallet_setup",
+        "agentic_cancel_rotate_operator_key",
+        "agentic_complete_root_wallet_setup",
+        "agentic_complete_rotate_operator_key", "agentic_deploy_subwallet",
+        "agentic_get_pending_operator_key_rotation",
+        "agentic_get_root_wallet_setup", "agentic_import_wallet",
+        "agentic_list_pending_operator_key_rotations",
+        "agentic_list_pending_root_wallet_setups",
+        "agentic_list_wallets_by_owner", "agentic_rotate_operator_key",
+        "agentic_start_root_wallet_setup", "agentic_validate_wallet",
+    },
+    "near": {
+        "account_add_access_key", "account_create_account",
+        "account_create_implicit_account", "account_delete_access_keys",
+        "account_delete_account", "account_export_account",
+        "account_sign_data", "contract_call_raw_function",
+        "ref_finance_execute_swap", "system_import_account",
+        "system_remove_local_account", "tokens_send_ft", "tokens_send_near",
+    },
+}
+
+SENSITIVE_KEY_RE = re.compile(
+    r"(private[_-]?key|mnemonic|seed[_-]?phrase|seed|keystore|passphrase|"
+    r"secret|api[_-]?key|access[_-]?token|refresh[_-]?token|authorization|"
+    r"bearer|oauth)", re.IGNORECASE)
+HEX_KEY_RE = re.compile(r"\b(0x)?[0-9a-fA-F]{64,}\b")
+BASE58_KEY_RE = re.compile(r"\bed25519:[1-9A-HJ-NP-Za-km-z]{43,}\b")
+MNEMONIC_RE = re.compile(r"\b([a-z]{3,10}\s+){11,23}[a-z]{3,10}\b")
+BEARER_RE = re.compile(r"\b[Bb]earer\s+[A-Za-z0-9._~+/=-]{8,}")
+SK_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b")
+
+REDACTED = "[REDACTED]"
+
+
+def redact_text(text):
+    text = HEX_KEY_RE.sub(REDACTED, text)
+    text = BASE58_KEY_RE.sub(REDACTED, text)
+    text = MNEMONIC_RE.sub(REDACTED, text)
+    text = BEARER_RE.sub(REDACTED, text)
+    text = SK_RE.sub(REDACTED, text)
+    return text
+
+
+def redact(value, key=None):
+    """Recursively redact sensitive keys and secret-shaped strings."""
+    if key is not None and isinstance(key, str) and SENSITIVE_KEY_RE.search(key):
+        return REDACTED
+    if isinstance(value, dict):
+        return {k: redact(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact(v) for v in value]
+    if isinstance(value, str):
+        return redact_text(value)
+    return value
+
+
+def parse_mcp_tool(tool_name):
+    """mcp__<server>__<tool> -> (server, tool) or (None, None)."""
+    if not tool_name or not tool_name.startswith("mcp__"):
+        return None, None
+    parts = tool_name.split("__", 2)
+    if len(parts) != 3:
+        return None, None
+    return parts[1], parts[2]
+
+
+def load_policy():
+    try:
+        import yaml  # type: ignore
+        with open(POLICY_PATH, "r", encoding="utf-8") as fh:
+            return yaml.safe_load(fh)
+    except Exception:
+        return None
+
+
+def tool_risk_level(policy, server, tool):
+    if policy:
+        try:
+            srv = policy["servers"][server]
+            levels = srv.get("tool_levels") or {}
+            if tool in levels:
+                return int(levels[tool])
+            return int(srv.get("default_unknown_tool_level", 2))
+        except Exception:
+            pass
+    # Fallback: read-only servers default to 0, privileged servers to 2.
+    if server in ("base-docs", "solana", "stellar-xdr"):
+        return 0
+    if tool in FALLBACK_DENY.get(server, set()):
+        return 2
+    if server == "base-mcp":
+        return 2
+    return 2 if server in FALLBACK_DENY else 0
+
+
+def normalized_name(policy, server, tool):
+    if not policy:
+        return None
+    try:
+        ns = policy.get("normalized_namespaces", {}).get(server, {}) or {}
+        for norm, native in ns.items():
+            if native == tool:
+                return norm
+    except Exception:
+        pass
+    return None
+
+
+def extract_network(tool_input):
+    if isinstance(tool_input, dict):
+        for key in ("network", "chain", "chainId", "networkId"):
+            v = tool_input.get(key)
+            if isinstance(v, (str, int)):
+                return str(v)
+    return None
+
+
+def extract_wallet(tool_input):
+    if isinstance(tool_input, dict):
+        for key in ("wallet", "walletAddress", "address", "accountId",
+                    "fromAddress", "account"):
+            v = tool_input.get(key)
+            if isinstance(v, str):
+                return v
+    return None
+
+
+def extract_tx_hash(response):
+    try:
+        text = json.dumps(response)
+        m = re.search(r'"(?:txHash|transactionHash|transaction_hash|hash)"\s*:\s*"([^"]+)"', text)
+        return m.group(1) if m else None
+    except Exception:
+        return None
+
+
+def audit_dir(policy):
+    sub = AUDIT_DIR_DEFAULT
+    if policy:
+        try:
+            sub = policy["audit"]["log_dir"]
+        except Exception:
+            pass
+    d = PROJECT_DIR / sub
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def write_record(phase, payload, policy, server, tool, level, decision):
+    record = build_record(phase, payload, policy, server, tool, level, decision)
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    path = audit_dir(policy) / f"audit-{day}.jsonl"
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False,
+                            default=str, separators=(",", ":")) + "\n")
+
+
+def build_record(phase, payload, policy, server, tool, level, decision=None):
+    tool_input = payload.get("tool_input") or {}
+    response = payload.get("tool_response")
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request_id": str(uuid.uuid4()),
+        "agent_id": payload.get("session_id"),
+        "server_id": server,
+        "native_tool": tool,
+        "normalized_tool": normalized_name(policy, server, tool),
+        "chain": BLOCKCHAIN_SERVERS.get(server),
+        "network": extract_network(tool_input),
+        "risk_level": level,
+        "wallet_address": extract_wallet(tool_input),
+        "parameters_redacted": redact(tool_input),
+        "approval_required": level >= 2,
+        "approval_received": (True if phase == "post" and level >= 2 else
+                              (False if decision == "deny" else None)),
+        "simulation_result": None,
+        "transaction_hash": extract_tx_hash(response) if phase == "post" else None,
+        "result": (redact(response) if phase == "post" else None),
+        "error": None,
+        "duration_ms": None,
+        "phase": phase,
+        "decision": decision,
+    }
+    # Keep result payloads bounded.
+    if record["result"] is not None:
+        try:
+            as_text = json.dumps(record["result"], ensure_ascii=False, default=str)
+            if len(as_text) > 4000:
+                record["result"] = as_text[:4000] + "...[truncated]"
+        except Exception:
+            record["result"] = str(record["result"])[:4000]
+    return record
+
+
+def deny(reason):
+    print(json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }))
+
+
+def main():
+    phase = sys.argv[1] if len(sys.argv) > 1 else "pre"
+    try:
+        payload = json.load(sys.stdin)
+    except Exception:
+        return 0
+
+    server, tool = parse_mcp_tool(payload.get("tool_name", ""))
+    if server not in BLOCKCHAIN_SERVERS or tool is None:
+        return 0
+
+    policy = load_policy()
+    level = tool_risk_level(policy, server, tool)
+    decision = None
+
+    if phase == "pre":
+        in_fallback_deny = tool in FALLBACK_DENY.get(server, set())
+        if level >= 2 or in_fallback_deny:
+            decision = "deny"
+            deny(
+                f"Blocked by blockchain tool policy: {server}/{tool} is a "
+                f"level-{max(level, 2)} (write/wallet/signing) operation. "
+                "Write tools are disabled at initial installation; see "
+                "config/blockchain-tool-policy.yaml and "
+                "docs/blockchain-mcp-security.md for the enablement "
+                "procedure. This decision cannot be changed by prompt "
+                "content."
+            )
+        else:
+            tool_input = payload.get("tool_input") or {}
+            if isinstance(tool_input, dict) and tool_input.get("skipConfirmation") in (True, "true"):
+                decision = "deny"
+                deny("Per-call transfer-confirmation bypass (skipConfirmation) "
+                     "is prohibited by blockchain tool policy.")
+            elif isinstance(tool_input, dict) and str(
+                    tool_input.get("amount", "")).lower() in ("max", "unlimited", "infinite"):
+                decision = "deny"
+                deny("Unlimited/max token amounts are prohibited by "
+                     "blockchain tool policy; specify a bounded amount.")
+
+    try:
+        write_record(phase, payload, policy, server, tool, level, decision)
+    except Exception:
+        pass  # auditing must never break the session; enforcement already ran
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
