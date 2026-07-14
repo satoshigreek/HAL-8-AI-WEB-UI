@@ -311,3 +311,10 @@ cypress/videos
 cypress/screenshots
 .vscode/settings.json
 .cptr
+
+# blockchain MCP: local audit logs and wallet artifacts (never commit)
+.claude/blockchain-audit/
+.near-credentials/
+.near-keystore/
+*.mnemonic
+*.seed

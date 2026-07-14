@@ -1,0 +1,143 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__base-docs",
+      "mcp__solana",
+      "mcp__stellar-xdr",
+      "mcp__bnb-chain__get_chain_info",
+      "mcp__bnb-chain__get_supported_networks",
+      "mcp__bnb-chain__get_latest_block",
+      "mcp__bnb-chain__get_block_by_hash",
+      "mcp__bnb-chain__get_block_by_number",
+      "mcp__bnb-chain__get_transaction",
+      "mcp__bnb-chain__get_native_balance",
+      "mcp__bnb-chain__get_erc20_balance",
+      "mcp__bnb-chain__get_erc20_token_info",
+      "mcp__bnb-chain__get_erc1155_token_metadata",
+      "mcp__bnb-chain__get_nft_info",
+      "mcp__bnb-chain__get_erc8004_agent",
+      "mcp__bnb-chain__get_erc8004_agent_wallet",
+      "mcp__bnb-chain__is_contract",
+      "mcp__bnb-chain__read_contract",
+      "mcp__bnb-chain__estimate_gas",
+      "mcp__bnb-chain__gnfd_get_account_balance",
+      "mcp__bnb-chain__gnfd_get_all_sps",
+      "mcp__bnb-chain__gnfd_get_bucket_full_info",
+      "mcp__bnb-chain__gnfd_get_bucket_info",
+      "mcp__bnb-chain__gnfd_get_object_info",
+      "mcp__bnb-chain__gnfd_get_payment_account_info",
+      "mcp__bnb-chain__gnfd_get_payment_accounts",
+      "mcp__bnb-chain__gnfd_list_buckets",
+      "mcp__bnb-chain__gnfd_list_objects",
+      "mcp__bnb-chain__gnfd_download_object",
+      "mcp__ton__get_balance",
+      "mcp__ton__get_balance_by_address",
+      "mcp__ton__get_jetton_balance",
+      "mcp__ton__get_jetton_info",
+      "mcp__ton__get_jettons",
+      "mcp__ton__get_jettons_by_address",
+      "mcp__ton__get_known_jettons",
+      "mcp__ton__get_nft",
+      "mcp__ton__get_nfts",
+      "mcp__ton__get_nfts_by_address",
+      "mcp__ton__get_swap_quote",
+      "mcp__ton__get_transaction_status",
+      "mcp__ton__get_transactions",
+      "mcp__ton__get_current_wallet",
+      "mcp__ton__get_wallet",
+      "mcp__ton__list_wallets",
+      "mcp__ton__resolve_dns",
+      "mcp__ton__back_resolve_dns",
+      "mcp__ton__emulate_transaction",
+      "mcp__ton__build_ton_transfer",
+      "mcp__ton__build_jetton_transfer",
+      "mcp__ton__build_nft_transfer",
+      "mcp__near__account_view_account_summary",
+      "mcp__near__account_list_access_keys",
+      "mcp__near__account_verify_signature",
+      "mcp__near__contract_view_functions",
+      "mcp__near__contract_get_function_args",
+      "mcp__near__contract_call_raw_function_as_read_only",
+      "mcp__near__ref_finance_get_pools",
+      "mcp__near__ref_finance_get_swap_estimate",
+      "mcp__near__search_near_fungible_tokens",
+      "mcp__near__system_list_local_keypairs"
+    ],
+    "deny": [
+      "mcp__bnb-chain__approve_token_spending",
+      "mcp__bnb-chain__confirm_transfer",
+      "mcp__bnb-chain__create_erc20_token",
+      "mcp__bnb-chain__get_address_from_private_key",
+      "mcp__bnb-chain__transfer_erc1155",
+      "mcp__bnb-chain__transfer_erc20",
+      "mcp__bnb-chain__transfer_native_token",
+      "mcp__bnb-chain__transfer_nft",
+      "mcp__bnb-chain__write_contract",
+      "mcp__bnb-chain__register_erc8004_agent",
+      "mcp__bnb-chain__set_erc8004_agent_uri",
+      "mcp__bnb-chain__gnfd_create_bucket",
+      "mcp__bnb-chain__gnfd_create_file",
+      "mcp__bnb-chain__gnfd_create_folder",
+      "mcp__bnb-chain__gnfd_create_payment_account",
+      "mcp__bnb-chain__gnfd_delete_bucket",
+      "mcp__bnb-chain__gnfd_delete_object",
+      "mcp__bnb-chain__gnfd_deposit_to_payment",
+      "mcp__bnb-chain__gnfd_withdraw_from_payment",
+      "mcp__ton__send_raw_transaction",
+      "mcp__ton__generate_ton_proof",
+      "mcp__ton__set_active_wallet",
+      "mcp__ton__remove_wallet",
+      "mcp__ton__agentic_cancel_root_wallet_setup",
+      "mcp__ton__agentic_cancel_rotate_operator_key",
+      "mcp__ton__agentic_complete_root_wallet_setup",
+      "mcp__ton__agentic_complete_rotate_operator_key",
+      "mcp__ton__agentic_deploy_subwallet",
+      "mcp__ton__agentic_get_pending_operator_key_rotation",
+      "mcp__ton__agentic_get_root_wallet_setup",
+      "mcp__ton__agentic_import_wallet",
+      "mcp__ton__agentic_list_pending_operator_key_rotations",
+      "mcp__ton__agentic_list_pending_root_wallet_setups",
+      "mcp__ton__agentic_list_wallets_by_owner",
+      "mcp__ton__agentic_rotate_operator_key",
+      "mcp__ton__agentic_start_root_wallet_setup",
+      "mcp__ton__agentic_validate_wallet",
+      "mcp__near__account_add_access_key",
+      "mcp__near__account_create_account",
+      "mcp__near__account_create_implicit_account",
+      "mcp__near__account_delete_access_keys",
+      "mcp__near__account_delete_account",
+      "mcp__near__account_export_account",
+      "mcp__near__account_sign_data",
+      "mcp__near__contract_call_raw_function",
+      "mcp__near__ref_finance_execute_swap",
+      "mcp__near__system_import_account",
+      "mcp__near__system_remove_local_account",
+      "mcp__near__tokens_send_ft",
+      "mcp__near__tokens_send_near"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__(base-mcp|base-docs|bnb-chain|solana|stellar-xdr|ton|near)__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/blockchain-mcp-audit\" pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__(base-mcp|base-docs|bnb-chain|solana|stellar-xdr|ton|near)__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/blockchain-mcp-audit\" post"
+          }
+        ]
+      }
+    ]
+  }
+}

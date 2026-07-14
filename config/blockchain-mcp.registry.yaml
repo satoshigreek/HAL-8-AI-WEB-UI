@@ -1,0 +1,784 @@
+# Blockchain MCP Registry
+#
+# Canonical inventory of first-party blockchain MCP integrations for this
+# repository's Claude Code harness (.mcp.json), plus explicit "unsupported"
+# records for chains in the approved scope that have no first-party MCP.
+#
+# Policy: only MCP servers published or operated by a chain's official
+# foundation, protocol organization, core development company, or official
+# GitHub organization may be enabled. Community, multi-chain, generic-EVM,
+# RPC-provider, wallet-company and exchange MCPs are prohibited.
+# See config/blockchain-tool-policy.yaml and docs/blockchain-mcp-security.md.
+#
+# manifest_hash = sha256 over the sorted tool list (name, description,
+# inputSchema) canonicalized with sorted keys and compact separators.
+# It is written and drift-checked by scripts/blockchain-mcp-healthcheck.
+
+version: 1
+approved_scope:
+  - bitcoin
+  - ethereum
+  - bnb-chain
+  - xrpl
+  - solana
+  - tron
+  - hyperliquid
+  - dogecoin
+  - zcash
+  - stellar
+  - base
+  - ton
+  - near
+policy_ref: config/blockchain-tool-policy.yaml
+
+chains:
+  bitcoin:
+    id: bitcoin
+    display_name: Bitcoin
+    official_organization: Bitcoin Core project (github.com/bitcoin)
+    official_repository: null
+    official_documentation: https://bitcoin.org/en/developer-documentation
+    mcp_server_id: null
+    package: null
+    pinned_version: null
+    pinned_commit: null
+    transport: null
+    endpoint: null
+    default_network: null
+    supported_networks: []
+    capability_classes: []
+    status: unsupported
+    reason: FIRST_PARTY_MCP_UNAVAILABLE
+    enabled: false
+    read_only: null
+    wallet_capable: null
+    transaction_capable: null
+    trading_capable: null
+    requires_oauth: null
+    requires_wallet: null
+    requires_human_approval: null
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory: { verified: false, tools: [] }
+    manifest_hash: null
+    health_check: null
+    last_verified: "2026-07-14"
+    notes: >-
+      No MCP server is published by Bitcoin Core or a comparable official
+      Bitcoin organization. Requests must return the structured
+      FIRST_PARTY_MCP_UNAVAILABLE response; do not substitute community or
+      RPC-provider MCPs.
+
+  ethereum:
+    id: ethereum
+    display_name: Ethereum
+    official_organization: Ethereum Foundation (github.com/ethereum)
+    official_repository: null
+    official_documentation: https://ethereum.org/en/developers/docs/
+    mcp_server_id: null
+    package: null
+    pinned_version: null
+    pinned_commit: null
+    transport: null
+    endpoint: null
+    default_network: null
+    supported_networks: []
+    capability_classes: []
+    status: unsupported
+    reason: FIRST_PARTY_MCP_UNAVAILABLE
+    enabled: false
+    read_only: null
+    wallet_capable: null
+    transaction_capable: null
+    trading_capable: null
+    requires_oauth: null
+    requires_wallet: null
+    requires_human_approval: null
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory: { verified: false, tools: [] }
+    manifest_hash: null
+    health_check: null
+    last_verified: "2026-07-14"
+    notes: >-
+      The Ethereum Foundation publishes no official MCP server. Generic EVM
+      MCPs are explicitly prohibited as substitutes. Note: the BNB Chain MCP
+      technically supports Ethereum networks, but routing Ethereum requests
+      through it is forbidden by policy (network allowlist).
+
+  bnb-chain:
+    id: bnb-chain
+    display_name: BNB Chain
+    official_organization: BNB Chain (github.com/bnb-chain)
+    official_repository: https://github.com/bnb-chain/bnbchain-mcp
+    official_documentation: https://docs.bnbchain.org/developer-kit/mcp/
+    mcp_server_id: bnb-chain
+    package: "@bnb-chain/mcp"
+    pinned_version: "1.5.1"
+    pinned_commit: a133675365d5d941d891b17a42f2ca587c33922a
+    transport: stdio
+    endpoint: null
+    default_network: bsc-testnet
+    supported_networks:
+      - bsc
+      - bsc-testnet
+      - opbnb
+      - opbnb-testnet
+      - greenfield
+      - greenfield-testnet
+    capability_classes:
+      - network_read
+      - account_read
+      - tx_read
+      - contract_read
+      - tx_simulate
+      - tx_build
+      - token_transfer
+      - contract_write
+      - storage
+    status: enabled
+    reason: null
+    enabled: true
+    read_only: false
+    wallet_capable: true
+    transaction_capable: true
+    trading_capable: false
+    requires_oauth: false
+    requires_wallet: false
+    requires_human_approval: true
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory:
+      verified: true
+      tools:
+        - approve_token_spending
+        - confirm_transfer
+        - create_erc20_token
+        - estimate_gas
+        - get_address_from_private_key
+        - get_block_by_hash
+        - get_block_by_number
+        - get_chain_info
+        - get_erc1155_token_metadata
+        - get_erc20_balance
+        - get_erc20_token_info
+        - get_erc8004_agent
+        - get_erc8004_agent_wallet
+        - get_latest_block
+        - get_native_balance
+        - get_nft_info
+        - get_supported_networks
+        - get_transaction
+        - gnfd_create_bucket
+        - gnfd_create_file
+        - gnfd_create_folder
+        - gnfd_create_payment_account
+        - gnfd_delete_bucket
+        - gnfd_delete_object
+        - gnfd_deposit_to_payment
+        - gnfd_download_object
+        - gnfd_get_account_balance
+        - gnfd_get_all_sps
+        - gnfd_get_bucket_full_info
+        - gnfd_get_bucket_info
+        - gnfd_get_object_info
+        - gnfd_get_payment_account_info
+        - gnfd_get_payment_accounts
+        - gnfd_list_buckets
+        - gnfd_list_objects
+        - gnfd_withdraw_from_payment
+        - is_contract
+        - read_contract
+        - register_erc8004_agent
+        - set_erc8004_agent_uri
+        - transfer_erc1155
+        - transfer_erc20
+        - transfer_native_token
+        - transfer_nft
+        - write_contract
+    manifest_hash: "33d348d2a3dd71af8cc30cc4feb72dd2724d85352a18752578341cef978965f9"
+    health_check:
+      method: stdio
+      auth_method: none
+      harmless_call: { name: get_supported_networks, arguments: {} }
+      last_status: "ok"
+      last_checked: "2026-07-14T22:20:42.944677+00:00"
+      last_latency_ms: 1983
+      tool_count: 45
+    last_verified: "2026-07-14"
+    notes: >-
+      Verified first-party: npm dist gitHead matches repository HEAD
+      (a133675). The implementation technically supports non-BNB EVM
+      networks (Ethereum, Base, Arbitrum, Polygon, etc.); the policy network
+      allowlist restricts use to BNB Smart Chain, opBNB and Greenfield only.
+      BNBCHAIN_MCP_SKIP_TRANSFER_CONFIRMATION is pinned to "false" in
+      .mcp.json and must never be set true. No PRIVATE_KEY is configured.
+
+  xrpl:
+    id: xrpl
+    display_name: XRP Ledger
+    official_organization: XRP Ledger Foundation / Ripple (github.com/XRPLF)
+    official_repository: null
+    official_documentation: https://xrpl.org/docs
+    mcp_server_id: null
+    package: null
+    pinned_version: null
+    pinned_commit: null
+    transport: null
+    endpoint: null
+    default_network: null
+    supported_networks: []
+    capability_classes: []
+    status: unsupported
+    reason: FIRST_PARTY_MCP_UNAVAILABLE
+    enabled: false
+    read_only: null
+    wallet_capable: null
+    transaction_capable: null
+    trading_capable: null
+    requires_oauth: null
+    requires_wallet: null
+    requires_human_approval: null
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory: { verified: false, tools: [] }
+    manifest_hash: null
+    health_check: null
+    last_verified: "2026-07-14"
+    notes: >-
+      XRPL documentation lists MCP integrations and documentation services
+      operated by third parties. Per policy these are NOT first-party and
+      remain disabled. Only enable XRPL when a server published or operated
+      directly by XRPLF or Ripple can be ownership-verified.
+
+  solana:
+    id: solana
+    display_name: Solana
+    official_organization: Solana Foundation (github.com/solana-foundation)
+    official_repository: https://github.com/solana-foundation/solana-mcp-official
+    official_documentation: https://mcp.solana.com
+    mcp_server_id: solana
+    package: null
+    pinned_version: null
+    pinned_commit: 6be1bedceb044b2d955279461c03d2bb5e2cc9fb
+    transport: http
+    endpoint: https://mcp.solana.com
+    default_network: null
+    supported_networks: []
+    capability_classes:
+      - docs
+      - program_analysis
+    status: enabled
+    reason: null
+    enabled: true
+    read_only: true
+    wallet_capable: false
+    transaction_capable: false
+    trading_capable: false
+    requires_oauth: false
+    requires_wallet: false
+    requires_human_approval: false
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory:
+      verified: false
+      tools:
+        - Solana_Expert__Ask_For_Help
+        - Solana_Documentation_Search
+        - list_sections
+        - get_documentation
+        - program_autofixer
+    manifest_hash: null
+    health_check:
+      method: http
+      auth_method: none
+      harmless_call: { name: Solana_Documentation_Search, arguments: { query: "program derived address" } }
+      last_status: null
+      last_checked: null
+      last_latency_ms: null
+      tool_count: 5
+    last_verified: "2026-07-14"
+    notes: >-
+      Developer/documentation MCP only — NOT a wallet executor. Remote
+      Cloud Run service fronting mcp.solana.com (MCP served at the root
+      path; GET /health for liveness). pinned_commit records the reviewed
+      source revision of the deployed service; the remote deployment itself
+      cannot be version-pinned, so manifest drift detection applies.
+      Tool inventory is from the official README; verified flips to true
+      when the healthcheck completes a live handshake (endpoint is not
+      reachable from the CI/dev sandbox egress policy).
+
+  tron:
+    id: tron
+    display_name: TRON
+    official_organization: TRON DAO (github.com/tronprotocol)
+    official_repository: null
+    official_documentation: https://developers.tron.network/
+    mcp_server_id: null
+    package: null
+    pinned_version: null
+    pinned_commit: null
+    transport: null
+    endpoint: null
+    default_network: null
+    supported_networks: []
+    capability_classes: []
+    status: unsupported
+    reason: FIRST_PARTY_MCP_UNAVAILABLE
+    enabled: false
+    read_only: null
+    wallet_capable: null
+    transaction_capable: null
+    trading_capable: null
+    requires_oauth: null
+    requires_wallet: null
+    requires_human_approval: null
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory: { verified: false, tools: [] }
+    manifest_hash: null
+    health_check: null
+    last_verified: "2026-07-14"
+    notes: No first-party MCP published by TRON DAO / tronprotocol.
+
+  hyperliquid:
+    id: hyperliquid
+    display_name: Hyperliquid
+    official_organization: Hyperliquid Labs (github.com/hyperliquid-dex)
+    official_repository: null
+    official_documentation: https://hyperliquid.gitbook.io/hyperliquid-docs
+    mcp_server_id: null
+    package: null
+    pinned_version: null
+    pinned_commit: null
+    transport: null
+    endpoint: null
+    default_network: null
+    supported_networks: []
+    capability_classes: []
+    status: unsupported
+    reason: FIRST_PARTY_MCP_UNAVAILABLE
+    enabled: false
+    read_only: null
+    wallet_capable: null
+    transaction_capable: null
+    trading_capable: null
+    requires_oauth: null
+    requires_wallet: null
+    requires_human_approval: null
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory: { verified: false, tools: [] }
+    manifest_hash: null
+    health_check: null
+    last_verified: "2026-07-14"
+    notes: >-
+      No first-party MCP published by Hyperliquid Labs. Community trading
+      MCPs exist and are explicitly prohibited (trading capability plus
+      unofficial publisher).
+
+  dogecoin:
+    id: dogecoin
+    display_name: Dogecoin
+    official_organization: Dogecoin Foundation / dogecoin core (github.com/dogecoin)
+    official_repository: null
+    official_documentation: https://dogecoin.com/
+    mcp_server_id: null
+    package: null
+    pinned_version: null
+    pinned_commit: null
+    transport: null
+    endpoint: null
+    default_network: null
+    supported_networks: []
+    capability_classes: []
+    status: unsupported
+    reason: FIRST_PARTY_MCP_UNAVAILABLE
+    enabled: false
+    read_only: null
+    wallet_capable: null
+    transaction_capable: null
+    trading_capable: null
+    requires_oauth: null
+    requires_wallet: null
+    requires_human_approval: null
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory: { verified: false, tools: [] }
+    manifest_hash: null
+    health_check: null
+    last_verified: "2026-07-14"
+    notes: No first-party MCP published by the Dogecoin Foundation or dogecoin core.
+
+  zcash:
+    id: zcash
+    display_name: Zcash
+    official_organization: Electric Coin Co. / Zcash Foundation (github.com/zcash)
+    official_repository: null
+    official_documentation: https://zcash.readthedocs.io/
+    mcp_server_id: null
+    package: null
+    pinned_version: null
+    pinned_commit: null
+    transport: null
+    endpoint: null
+    default_network: null
+    supported_networks: []
+    capability_classes: []
+    status: unsupported
+    reason: FIRST_PARTY_MCP_UNAVAILABLE
+    enabled: false
+    read_only: null
+    wallet_capable: null
+    transaction_capable: null
+    trading_capable: null
+    requires_oauth: null
+    requires_wallet: null
+    requires_human_approval: null
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory: { verified: false, tools: [] }
+    manifest_hash: null
+    health_check: null
+    last_verified: "2026-07-14"
+    notes: No first-party MCP published by Electric Coin Co. or the Zcash Foundation.
+
+  stellar:
+    id: stellar
+    display_name: Stellar
+    official_organization: Stellar Development Foundation (github.com/stellar)
+    official_repository: https://github.com/stellar/mcp-stellar-xdr
+    official_documentation: https://github.com/stellar/mcp-stellar-xdr#readme
+    mcp_server_id: stellar-xdr
+    package: null
+    pinned_version: null
+    pinned_commit: 1e010ef44c2887e664cb07c3605ffec378177a8b
+    transport: stdio
+    endpoint: https://raw.githubusercontent.com/stellar/mcp-stellar-xdr/1e010ef44c2887e664cb07c3605ffec378177a8b/mcp-stellar-xdr.ts
+    default_network: null
+    supported_networks: []
+    capability_classes:
+      - xdr_codec
+    status: enabled
+    reason: null
+    enabled: true
+    read_only: true
+    wallet_capable: false
+    transaction_capable: false
+    trading_capable: false
+    requires_oauth: false
+    requires_wallet: false
+    requires_human_approval: false
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory:
+      verified: true
+      tools:
+        - decode
+        - encode
+        - guess
+        - json_schema
+        - types
+    manifest_hash: "aedbcaee70587877ac0a5656e6f21e6c5ffbf9b280412f5d27d66d0991dee107"
+    health_check:
+      method: stdio
+      auth_method: none
+      harmless_call: { name: types, arguments: {} }
+      last_status: "ok"
+      last_checked: "2026-07-14T22:20:22.833167+00:00"
+      last_latency_ms: 905
+      tool_count: 5
+    last_verified: "2026-07-14"
+    notes: >-
+      XDR encode/decode tooling only — NOT a Stellar wallet or
+      transaction-execution server. Executed via Deno (pinned deno@2.9.2
+      from npm) from a commit-pinned raw URL; the script itself pins its npm
+      dependencies (@modelcontextprotocol/sdk@1.17.5, zod@3.25.76,
+      @stellar/stellar-xdr-json@23.0.0). Runs with --allow-read only:
+      no network or write permission is granted to the script at runtime.
+
+  base:
+    id: base
+    display_name: Base
+    official_organization: Base / Coinbase (base.org, github.com/base)
+    official_repository: https://github.com/base
+    official_documentation: https://docs.base.org/agents
+    mcp_server_id: base-mcp
+    package: null
+    pinned_version: null
+    pinned_commit: null
+    transport: http
+    endpoint: https://mcp.base.org
+    default_network: base
+    supported_networks:
+      - base
+      - base-sepolia
+    capability_classes:
+      - account_read
+      - tx_read
+      - tx_build
+      - token_transfer
+      - swap
+      - message_sign
+      - contract_write
+      - payments
+    status: enabled
+    reason: null
+    enabled: true
+    read_only: false
+    wallet_capable: true
+    transaction_capable: true
+    trading_capable: true
+    requires_oauth: true
+    requires_wallet: true
+    requires_human_approval: true
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory:
+      verified: false
+      tools: []
+    manifest_hash: null
+    health_check:
+      method: http
+      auth_method: oauth-base-account
+      harmless_call: null
+      last_status: null
+      last_checked: null
+      last_latency_ms: null
+      tool_count: null
+    last_verified: "2026-07-14"
+    notes: >-
+      Official Base wallet MCP over Base Account (OAuth). Setup per
+      https://docs.base.org/agents/quickstart ("claude mcp add --transport
+      http base-mcp https://mcp.base.org"). No private key or seed phrase is
+      ever requested, stored or imported. Tool discovery requires the user
+      to complete the Base Account OAuth flow interactively (/mcp in Claude
+      Code); the harness additionally blocks write tools by policy even
+      though Base Account has its own confirmation UI. Confirmation links
+      must never be auto-opened or auto-approved. Wallet/balance queries run
+      only after the user completes OAuth.
+    docs_server:
+      mcp_server_id: base-docs
+      transport: http
+      endpoint: https://docs.base.org/mcp
+      auth_method: none
+      read_only: true
+      capability_classes: [docs]
+      tool_inventory:
+        verified: false
+        tools:
+          - search_base_documentation
+          - query_docs_filesystem_base_documentation
+      manifest_hash: null
+      health_check:
+        method: http
+        auth_method: none
+        harmless_call: { name: search_base_documentation, arguments: { query: "what is Base Account" } }
+        last_status: null
+        last_checked: null
+        last_latency_ms: null
+        tool_count: 2
+      notes: >-
+        Read-only documentation MCP (Mintlify-hosted). Tool inventory from
+        the published capability manifest at https://docs.base.org/mcp;
+        verified flips to true after a live handshake.
+
+  ton:
+    id: ton
+    display_name: TON
+    official_organization: TON Core / TON Connect (github.com/ton-connect, docs.ton.org)
+    official_repository: https://github.com/ton-connect/kit
+    official_documentation: https://docs.ton.org/onboarding/ai/mcp
+    mcp_server_id: ton
+    package: "@ton/mcp"
+    pinned_version: "0.1.15-alpha.23"
+    pinned_commit: 3ed85b16aa8b9db328641224027d99d54182c2cb
+    transport: stdio
+    endpoint: null
+    default_network: testnet
+    supported_networks:
+      - mainnet
+      - testnet
+    capability_classes:
+      - account_read
+      - tx_read
+      - tx_build
+      - tx_simulate
+      - token_transfer
+      - nft_transfer
+      - swap
+      - dns
+      - wallet_manage
+      - tx_sign
+      - tx_broadcast
+    status: enabled
+    reason: null
+    enabled: true
+    read_only: false
+    wallet_capable: true
+    transaction_capable: true
+    trading_capable: true
+    requires_oauth: false
+    requires_wallet: true
+    requires_human_approval: true
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory:
+      verified: true
+      tools:
+        - agentic_cancel_root_wallet_setup
+        - agentic_cancel_rotate_operator_key
+        - agentic_complete_root_wallet_setup
+        - agentic_complete_rotate_operator_key
+        - agentic_deploy_subwallet
+        - agentic_get_pending_operator_key_rotation
+        - agentic_get_root_wallet_setup
+        - agentic_import_wallet
+        - agentic_list_pending_operator_key_rotations
+        - agentic_list_pending_root_wallet_setups
+        - agentic_list_wallets_by_owner
+        - agentic_rotate_operator_key
+        - agentic_start_root_wallet_setup
+        - agentic_validate_wallet
+        - back_resolve_dns
+        - build_jetton_transfer
+        - build_nft_transfer
+        - build_ton_transfer
+        - emulate_transaction
+        - generate_ton_proof
+        - get_balance
+        - get_balance_by_address
+        - get_current_wallet
+        - get_jetton_balance
+        - get_jetton_info
+        - get_jettons
+        - get_jettons_by_address
+        - get_known_jettons
+        - get_nft
+        - get_nfts
+        - get_nfts_by_address
+        - get_swap_quote
+        - get_transaction_status
+        - get_transactions
+        - get_wallet
+        - list_wallets
+        - remove_wallet
+        - resolve_dns
+        - send_raw_transaction
+        - set_active_wallet
+    manifest_hash: "26fb68cac2027653f90a60368bab35f3e0e0750cde871a5b2b511e86a93df467"
+    health_check:
+      method: stdio
+      auth_method: none
+      harmless_call: { name: get_known_jettons, arguments: {} }
+      last_status: "ok"
+      last_checked: "2026-07-14T22:20:45.052895+00:00"
+      last_latency_ms: 1720
+      tool_count: 40
+    last_verified: "2026-07-14"
+    notes: >-
+      ALPHA release — pinned exact version, no floating @alpha/@latest tag.
+      Handles private keys and signs INTERNALLY (WalletKit): treat as highly
+      privileged. Only send_raw_transaction signs and broadcasts; build_*
+      tools construct unsigned payloads. All wallet-backed tools (agentic_*,
+      send_raw_transaction, generate_ton_proof, remove_wallet,
+      set_active_wallet, agentic_import_wallet) are blocked by harness
+      policy at initial installation. NETWORK=testnet is pinned in
+      .mcp.json. No MNEMONIC/PRIVATE_KEY is configured; the local wallet
+      registry path (~/.config/ton/config.json) must never point at a
+      production wallet.
+
+  near:
+    id: near
+    display_name: NEAR
+    official_organization: NEAR AI (github.com/nearai)
+    official_repository: https://github.com/nearai/near-mcp
+    official_documentation: https://github.com/nearai/near-mcp#readme
+    mcp_server_id: near
+    package: "@nearai/near-mcp"
+    pinned_version: "0.0.35"
+    pinned_commit: 7d598bd9a9e46dac4bf6851f788f8e4e7a4e88a0
+    transport: stdio
+    endpoint: null
+    default_network: testnet
+    supported_networks:
+      - mainnet
+      - testnet
+    capability_classes:
+      - account_read
+      - contract_read
+      - account_manage
+      - access_key_manage
+      - tx_sign
+      - tx_broadcast
+      - token_transfer
+      - swap
+    status: enabled
+    reason: null
+    enabled: true
+    read_only: false
+    wallet_capable: true
+    transaction_capable: true
+    trading_capable: true
+    requires_oauth: false
+    requires_wallet: true
+    requires_human_approval: true
+    mainnet_writes_enabled: false
+    testnet_writes_enabled: false
+    community_substitution_allowed: false
+    tool_inventory:
+      verified: true
+      tools:
+        - account_add_access_key
+        - account_create_account
+        - account_create_implicit_account
+        - account_delete_access_keys
+        - account_delete_account
+        - account_export_account
+        - account_list_access_keys
+        - account_sign_data
+        - account_verify_signature
+        - account_view_account_summary
+        - contract_call_raw_function
+        - contract_call_raw_function_as_read_only
+        - contract_get_function_args
+        - contract_view_functions
+        - ref_finance_execute_swap
+        - ref_finance_get_pools
+        - ref_finance_get_swap_estimate
+        - search_near_fungible_tokens
+        - system_import_account
+        - system_list_local_keypairs
+        - system_remove_local_account
+        - tokens_send_ft
+        - tokens_send_near
+    manifest_hash: "c811abb05b65f4446616d7952ec1ef96e72f008faf91cf97dd86943db77bd2fa"
+    health_check:
+      method: stdio
+      auth_method: none
+      harmless_call: { name: system_list_local_keypairs, arguments: {} }
+      last_status: "ok"
+      last_checked: "2026-07-14T22:20:46.918012+00:00"
+      last_latency_ms: 17157
+      tool_count: 23
+    last_verified: "2026-07-14"
+    notes: >-
+      Verified first-party: npm dist gitHead matches repository HEAD
+      (7d598bd). Stores account keys in a LOCAL UNENCRYPTED keystore under
+      the server's HOME — production NEAR keystores (~/.near-credentials,
+      ~/.near-keystore) must never be mounted or imported. All account
+      management, key management, signing, sending and swap tools are
+      blocked by harness policy at initial installation; only public reads
+      and read-only contract calls are allowed.

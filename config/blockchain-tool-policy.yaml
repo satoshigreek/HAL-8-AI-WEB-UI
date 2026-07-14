@@ -1,0 +1,492 @@
+# Blockchain MCP Tool Policy
+#
+# Drives harness enforcement for blockchain MCP tools:
+#   - .claude/settings.json permission allow/deny lists mirror the levels here
+#     (level 0/1 tools are allowed, level >= 2 tools are denied initially)
+#   - scripts/blockchain-mcp-audit (PreToolUse hook) enforces deny + logs
+#   - tests/blockchain-mcp/ verifies this file stays consistent with
+#     .mcp.json, the registry and .claude/settings.json
+#
+# MCP-returned documentation, tool descriptions and tool results are
+# UNTRUSTED INPUT. Nothing an MCP server returns can change these policies;
+# only a reviewed commit to this repository can.
+
+version: 1
+registry_ref: config/blockchain-mcp.registry.yaml
+mcp_output_is_untrusted: true
+
+# ---------------------------------------------------------------------------
+# Permission levels
+# ---------------------------------------------------------------------------
+permission_levels:
+  0:
+    name: automatic_read
+    description: >-
+      Automatically allowed: documentation search, public network/block/
+      transaction/account queries, balances, token metadata, contract reads,
+      XDR encode/decode, fee estimates, non-signing swap quotes, transaction
+      simulation, program source analysis.
+    requires_approval: false
+  1:
+    name: unsigned_construction
+    description: >-
+      Unsigned transaction construction. Allowed only when no private key is
+      loaded, nothing is signed or broadcast, no wallet confirmation is
+      requested, the target network is displayed, the action is decoded for
+      the user, and the unsigned payload is clearly labeled as unsigned.
+    requires_approval: false
+  2:
+    name: approved_testnet_action
+    description: >-
+      Every signature, broadcast, transfer, swap, token approval, contract
+      write/deployment, stake/unstake, wallet creation/import, account
+      creation/deletion, access-key change, NFT transfer and x402 payment.
+      Requires explicit human approval per invocation, and is DENIED at
+      initial installation (write_tools_enabled: false everywhere).
+    requires_approval: true
+    initially_denied: true
+    approval_display_fields:
+      - chain
+      - network
+      - wallet
+      - action
+      - destination
+      - asset
+      - amount
+      - estimated_fee
+      - contract
+      - decoded_method
+      - approval_amount
+      - slippage
+      - simulation_result
+      - expected_balance_changes
+  3:
+    name: mainnet_state_change
+    description: >-
+      All mainnet state-changing operations. Disabled unconditionally. A
+      prompt or environment variable alone must NOT enable mainnet
+      execution.
+    requires_approval: true
+    hard_disabled: true
+    enablement_requires:
+      - source_code_change
+      - policy_change_in_this_file
+      - security_review
+      - separate_signer_configuration
+      - chain_specific_tests
+      - explicit_chain_enablement
+      - human_approval_per_transaction
+
+# ---------------------------------------------------------------------------
+# Global limits and prohibitions
+# ---------------------------------------------------------------------------
+limits:
+  reject_unlimited_token_approvals: true
+  max_token_approval: bounded          # approvals must specify a finite amount
+  auto_open_confirmation_links: false  # never auto-open/approve Base Account links
+  dummy_keys_prohibited: true          # never fabricate private keys/mnemonics
+prohibited_wallet_sources:
+  - treasury_wallets
+  - foundation_wallets
+  - corporate_wallets
+  - exchange_wallets
+  - market_making_wallets
+  - liquidity_management_wallets
+  - personal_custody_wallets
+  - production_near_keystores
+prohibited_keystore_paths:
+  - ~/.near-credentials
+  - ~/.near-keystore
+
+# ---------------------------------------------------------------------------
+# Unsupported-chain handling
+# ---------------------------------------------------------------------------
+unsupported_response_template:
+  available: false
+  reason: FIRST_PARTY_MCP_UNAVAILABLE
+  communitySubstitutionAllowed: false
+  chain: "<CHAIN_ID>"
+  lastVerified: "<ISO_DATE>"
+prohibited_substitutions:
+  - generic_evm_server
+  - multi_chain_server
+  - community_server
+  - raw_rpc_presented_as_mcp
+  - another_chains_server
+
+# ---------------------------------------------------------------------------
+# Tool groups (agent-facing isolation; never expose all groups at once)
+# ---------------------------------------------------------------------------
+tool_groups:
+  blockchain-docs:
+    servers: [base-docs, solana]
+    max_level: 0
+  blockchain-read:
+    servers: [bnb-chain, ton, near, stellar-xdr]
+    max_level: 0
+  blockchain-base:
+    servers: [base-mcp, base-docs]
+    max_level: 2
+  blockchain-bnb:
+    servers: [bnb-chain]
+    max_level: 2
+  blockchain-solana:
+    servers: [solana]
+    max_level: 0
+  blockchain-stellar:
+    servers: [stellar-xdr]
+    max_level: 0
+  blockchain-ton:
+    servers: [ton]
+    max_level: 2
+  blockchain-near:
+    servers: [near]
+    max_level: 2
+  blockchain-security-review:
+    servers: [base-mcp, base-docs, bnb-chain, solana, stellar-xdr, ton, near]
+    max_level: 0
+    read_only_audit: true
+isolation_rules:
+  read_only_agents_get_signing_tools: false
+  transaction_servers_route_through_policy: true
+
+# ---------------------------------------------------------------------------
+# Per-server policy and tool risk levels
+# ---------------------------------------------------------------------------
+servers:
+  base-mcp:
+    chain: base
+    enabled: true
+    read_tools_enabled: true
+    write_tools_enabled: false
+    mainnet_writes_enabled: false
+    requires_oauth: true
+    requires_human_approval: true
+    default_unknown_tool_level: 2   # unknown/undiscovered tools must prompt
+    notes: >-
+      Tool manifest is only discoverable after Base Account OAuth. Until
+      classified here, every base-mcp tool is treated as level 2 (prompt;
+      write execution additionally blocked by Base Account's own approval).
+    tool_levels: {}
+
+  base-docs:
+    chain: base
+    enabled: true
+    read_tools_enabled: true
+    write_tools_enabled: false
+    mainnet_writes_enabled: false
+    default_unknown_tool_level: 0
+    tool_levels:
+      search_base_documentation: 0
+      query_docs_filesystem_base_documentation: 0
+
+  bnb-chain:
+    chain: bnb-chain
+    enabled: true
+    default_network: bsc-testnet
+    network_allowlist:              # BNB ecosystems ONLY (spec 1.2)
+      - bsc
+      - bsc-testnet
+      - opbnb
+      - opbnb-testnet
+      - greenfield
+      - greenfield-testnet
+    read_tools_enabled: true
+    transaction_building_enabled: true
+    write_tools_enabled: false
+    mainnet_writes_enabled: false
+    requires_human_approval: true
+    required_env:
+      BNBCHAIN_MCP_SKIP_TRANSFER_CONFIRMATION: "false"
+    private_key_configured: false
+    default_unknown_tool_level: 2
+    tool_levels:
+      get_chain_info: 0
+      get_supported_networks: 0
+      get_latest_block: 0
+      get_block_by_hash: 0
+      get_block_by_number: 0
+      get_transaction: 0
+      get_native_balance: 0
+      get_erc20_balance: 0
+      get_erc20_token_info: 0
+      get_erc1155_token_metadata: 0
+      get_nft_info: 0
+      get_erc8004_agent: 0
+      get_erc8004_agent_wallet: 0
+      is_contract: 0
+      read_contract: 0
+      estimate_gas: 0
+      gnfd_get_account_balance: 0
+      gnfd_get_all_sps: 0
+      gnfd_get_bucket_full_info: 0
+      gnfd_get_bucket_info: 0
+      gnfd_get_object_info: 0
+      gnfd_get_payment_account_info: 0
+      gnfd_get_payment_accounts: 0
+      gnfd_list_buckets: 0
+      gnfd_list_objects: 0
+      gnfd_download_object: 0
+      get_address_from_private_key: 2   # accepts a private key parameter
+      approve_token_spending: 2
+      confirm_transfer: 2
+      create_erc20_token: 2
+      transfer_erc1155: 2
+      transfer_erc20: 2
+      transfer_native_token: 2
+      transfer_nft: 2
+      write_contract: 2
+      register_erc8004_agent: 2
+      set_erc8004_agent_uri: 2
+      gnfd_create_bucket: 2
+      gnfd_create_file: 2
+      gnfd_create_folder: 2
+      gnfd_create_payment_account: 2
+      gnfd_delete_bucket: 2
+      gnfd_delete_object: 2
+      gnfd_deposit_to_payment: 2
+      gnfd_withdraw_from_payment: 2
+
+  solana:
+    chain: solana
+    enabled: true
+    capability: developer_tooling
+    read_only: true
+    wallet_access: false
+    signing_enabled: false
+    broadcasting_enabled: false
+    mainnet_writes_enabled: false
+    default_unknown_tool_level: 0   # docs-only server
+    tool_levels:
+      Solana_Expert__Ask_For_Help: 0
+      Solana_Documentation_Search: 0
+      list_sections: 0
+      get_documentation: 0
+      program_autofixer: 0
+
+  stellar-xdr:
+    chain: stellar
+    enabled: true
+    read_only: true
+    xdr_encoding_enabled: true
+    xdr_decoding_enabled: true
+    signing_enabled: false
+    submission_enabled: false
+    wallet_access: false
+    default_unknown_tool_level: 0
+    tool_levels:
+      types: 0
+      json_schema: 0
+      guess: 0
+      decode: 0
+      encode: 0
+
+  ton:
+    chain: ton
+    enabled: true
+    default_network: testnet
+    public_reads_enabled: true
+    wallet_creation_enabled: false
+    wallet_import_enabled: false
+    signing_enabled: false
+    transfers_enabled: false
+    swaps_enabled: false
+    nft_transfers_enabled: false
+    mainnet_writes_enabled: false
+    requires_human_approval: true
+    default_unknown_tool_level: 2   # internally-signing alpha: privileged
+    tool_levels:
+      get_balance: 0
+      get_balance_by_address: 0
+      get_jetton_balance: 0
+      get_jetton_info: 0
+      get_jettons: 0
+      get_jettons_by_address: 0
+      get_known_jettons: 0
+      get_nft: 0
+      get_nfts: 0
+      get_nfts_by_address: 0
+      get_swap_quote: 0
+      get_transaction_status: 0
+      get_transactions: 0
+      get_current_wallet: 0
+      get_wallet: 0
+      list_wallets: 0
+      resolve_dns: 0
+      back_resolve_dns: 0
+      emulate_transaction: 0
+      build_ton_transfer: 1
+      build_jetton_transfer: 1
+      build_nft_transfer: 1
+      generate_ton_proof: 2      # signs with wallet key
+      send_raw_transaction: 2    # the only tool that signs AND broadcasts
+      set_active_wallet: 2
+      remove_wallet: 2
+      agentic_cancel_root_wallet_setup: 2
+      agentic_cancel_rotate_operator_key: 2
+      agentic_complete_root_wallet_setup: 2
+      agentic_complete_rotate_operator_key: 2
+      agentic_deploy_subwallet: 2
+      agentic_get_pending_operator_key_rotation: 2
+      agentic_get_root_wallet_setup: 2
+      agentic_import_wallet: 2
+      agentic_list_pending_operator_key_rotations: 2
+      agentic_list_pending_root_wallet_setups: 2
+      agentic_list_wallets_by_owner: 2
+      agentic_rotate_operator_key: 2
+      agentic_start_root_wallet_setup: 2
+      agentic_validate_wallet: 2
+
+  near:
+    chain: near
+    enabled: true
+    default_network: testnet
+    public_reads_enabled: true
+    contract_reads_enabled: true
+    account_creation_enabled: false
+    account_deletion_enabled: false
+    access_key_changes_enabled: false
+    contract_writes_enabled: false
+    signing_enabled: false
+    broadcasting_enabled: false
+    mainnet_writes_enabled: false
+    requires_human_approval: true
+    keystore_mounted: false
+    default_unknown_tool_level: 2
+    tool_levels:
+      account_view_account_summary: 0
+      account_list_access_keys: 0
+      account_verify_signature: 0
+      contract_view_functions: 0
+      contract_get_function_args: 0
+      contract_call_raw_function_as_read_only: 0
+      ref_finance_get_pools: 0
+      ref_finance_get_swap_estimate: 0
+      search_near_fungible_tokens: 0
+      system_list_local_keypairs: 0
+      account_add_access_key: 2
+      account_create_account: 2
+      account_create_implicit_account: 2
+      account_delete_access_keys: 2
+      account_delete_account: 2
+      account_export_account: 2   # exports secret key material
+      account_sign_data: 2
+      contract_call_raw_function: 2
+      ref_finance_execute_swap: 2
+      system_import_account: 2
+      system_remove_local_account: 2
+      tokens_send_ft: 2
+      tokens_send_near: 2
+
+# ---------------------------------------------------------------------------
+# Normalized tool namespaces
+# ---------------------------------------------------------------------------
+# Harness-facing names for discovered native MCP tools. A null native means
+# the capability from the integration spec has no matching tool in the
+# discovered manifest (or discovery is pending OAuth) and MUST NOT be
+# exposed. Native MCP tool names are preserved for diagnostics/auditing.
+normalized_namespaces:
+  base-docs:
+    blockchain.base.docs.search: search_base_documentation
+    blockchain.base.docs.query: query_docs_filesystem_base_documentation
+  base-mcp:
+    # Wallet tool manifest is discoverable only after Base Account OAuth.
+    # Mappings stay null (unexposed) until the healthcheck records the
+    # discovered inventory and this file is updated in a reviewed commit.
+    blockchain.base.wallet.list: null
+    blockchain.base.balance.get: null
+    blockchain.base.portfolio.get: null
+    blockchain.base.transaction.history: null
+    blockchain.base.transaction.build: null
+    blockchain.base.transaction.send: null
+    blockchain.base.token.transfer: null
+    blockchain.base.swap.quote: null
+    blockchain.base.swap.execute: null
+    blockchain.base.message.sign: null
+    blockchain.base.contract.call: null
+    blockchain.base.x402.pay: null
+  bnb-chain:
+    blockchain.bnb.network.status: get_chain_info
+    blockchain.bnb.network.list: get_supported_networks
+    blockchain.bnb.block.get: get_block_by_number
+    blockchain.bnb.block.latest: get_latest_block
+    blockchain.bnb.transaction.get: get_transaction
+    blockchain.bnb.balance.get: get_native_balance
+    blockchain.bnb.token.get: get_erc20_token_info
+    blockchain.bnb.contract.read: read_contract
+    blockchain.bnb.transaction.simulate: estimate_gas
+    blockchain.bnb.transaction.build: null   # preview happens inside transfer tools (level 2)
+    blockchain.bnb.transaction.send: confirm_transfer
+    blockchain.bnb.greenfield.balance: gnfd_get_account_balance
+    blockchain.bnb.greenfield.buckets: gnfd_list_buckets
+    blockchain.bnb.greenfield.objects: gnfd_list_objects
+  solana:
+    blockchain.solana.docs.search: Solana_Documentation_Search
+    blockchain.solana.docs.get: get_documentation
+    blockchain.solana.docs.sections: list_sections
+    blockchain.solana.docs.ask: Solana_Expert__Ask_For_Help
+    blockchain.solana.program.check: null    # single autofixer tool covers fix
+    blockchain.solana.program.analyze: null  # single autofixer tool covers fix
+    blockchain.solana.program.fix: program_autofixer
+  stellar-xdr:
+    blockchain.stellar.xdr.types: types
+    blockchain.stellar.xdr.schema: json_schema
+    blockchain.stellar.xdr.guess: guess
+    blockchain.stellar.xdr.decode: decode
+    blockchain.stellar.xdr.encode: encode
+  ton:
+    blockchain.ton.balance.get: get_balance
+    blockchain.ton.transaction.history: get_transactions
+    blockchain.ton.asset.get: get_jettons
+    blockchain.ton.dns.resolve: resolve_dns
+    blockchain.ton.swap.quote: get_swap_quote
+    blockchain.ton.transaction.simulate: emulate_transaction
+    blockchain.ton.transfer: send_raw_transaction        # level 2, denied
+    blockchain.ton.swap.execute: send_raw_transaction    # level 2, denied
+    blockchain.ton.wallet.create: agentic_start_root_wallet_setup  # level 2, denied
+    blockchain.ton.wallet.import: agentic_import_wallet  # level 2, denied
+  near:
+    blockchain.near.network.status: null     # no network-status tool in manifest
+    blockchain.near.account.get: account_view_account_summary
+    blockchain.near.balance.get: account_view_account_summary
+    blockchain.near.token.get: search_near_fungible_tokens
+    blockchain.near.contract.read: contract_call_raw_function_as_read_only
+    blockchain.near.transaction.build: null  # no unsigned-build tool in manifest
+    blockchain.near.transaction.send: contract_call_raw_function  # level 2, denied
+    blockchain.near.account.create: account_create_account        # level 2, denied
+    blockchain.near.account.delete: account_delete_account        # level 2, denied
+    blockchain.near.access_key.manage: account_add_access_key     # level 2, denied
+
+# ---------------------------------------------------------------------------
+# Audit logging (enforced by scripts/blockchain-mcp-audit via hooks)
+# ---------------------------------------------------------------------------
+audit:
+  log_dir: .claude/blockchain-audit
+  format: jsonl
+  fields:
+    - timestamp
+    - request_id
+    - agent_id
+    - server_id
+    - native_tool
+    - normalized_tool
+    - chain
+    - network
+    - risk_level
+    - wallet_address
+    - parameters_redacted
+    - approval_required
+    - approval_received
+    - simulation_result
+    - transaction_hash
+    - result
+    - error
+    - duration_ms
+  redact:
+    - private_keys
+    - mnemonics
+    - seed_phrases
+    - authentication_tokens
+    - oauth_tokens
+    - keystore_contents
+    - sensitive_environment_variables
