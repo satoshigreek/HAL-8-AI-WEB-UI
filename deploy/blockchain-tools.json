@@ -1,0 +1,97 @@
+{
+  "_comment": "mcpo config for the blockchain-tools sidecar (docker-compose.prod.yaml). Exposes ONLY read-only blockchain tools to HAL 8 site models. Every tool listed in disabledTools is a level >= 2 (signing/transfer/wallet/key) operation from config/blockchain-tool-policy.yaml and gets NO route at all. tests/blockchain-mcp/test_site_bridge.py keeps this file in sync with the policy. Base wallet MCP (mcp.base.org) is deliberately absent: its Base Account OAuth is per-human and cannot be shared by a multi-user site.",
+  "mcpServers": {
+    "bnb": {
+      "command": "npx",
+      "args": ["-y", "@bnb-chain/mcp@1.5.1"],
+      "env": {
+        "BNBCHAIN_MCP_SKIP_TRANSFER_CONFIRMATION": "false"
+      },
+      "disabledTools": [
+        "approve_token_spending",
+        "confirm_transfer",
+        "create_erc20_token",
+        "get_address_from_private_key",
+        "transfer_erc1155",
+        "transfer_erc20",
+        "transfer_native_token",
+        "transfer_nft",
+        "write_contract",
+        "register_erc8004_agent",
+        "set_erc8004_agent_uri",
+        "gnfd_create_bucket",
+        "gnfd_create_file",
+        "gnfd_create_folder",
+        "gnfd_create_payment_account",
+        "gnfd_delete_bucket",
+        "gnfd_delete_object",
+        "gnfd_deposit_to_payment",
+        "gnfd_withdraw_from_payment"
+      ]
+    },
+    "ton": {
+      "command": "npx",
+      "args": ["-y", "@ton/mcp@0.1.15-alpha.23"],
+      "env": {
+        "NETWORK": "mainnet"
+      },
+      "disabledTools": [
+        "send_raw_transaction",
+        "generate_ton_proof",
+        "set_active_wallet",
+        "remove_wallet",
+        "agentic_cancel_root_wallet_setup",
+        "agentic_cancel_rotate_operator_key",
+        "agentic_complete_root_wallet_setup",
+        "agentic_complete_rotate_operator_key",
+        "agentic_deploy_subwallet",
+        "agentic_get_pending_operator_key_rotation",
+        "agentic_get_root_wallet_setup",
+        "agentic_import_wallet",
+        "agentic_list_pending_operator_key_rotations",
+        "agentic_list_pending_root_wallet_setups",
+        "agentic_list_wallets_by_owner",
+        "agentic_rotate_operator_key",
+        "agentic_start_root_wallet_setup",
+        "agentic_validate_wallet"
+      ]
+    },
+    "near": {
+      "command": "npx",
+      "args": ["-y", "@nearai/near-mcp@0.0.35", "run"],
+      "disabledTools": [
+        "account_add_access_key",
+        "account_create_account",
+        "account_create_implicit_account",
+        "account_delete_access_keys",
+        "account_delete_account",
+        "account_export_account",
+        "account_sign_data",
+        "contract_call_raw_function",
+        "ref_finance_execute_swap",
+        "system_import_account",
+        "system_remove_local_account",
+        "tokens_send_ft",
+        "tokens_send_near"
+      ]
+    },
+    "stellar-xdr": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "deno@2.9.2",
+        "run",
+        "--allow-read",
+        "https://raw.githubusercontent.com/stellar/mcp-stellar-xdr/1e010ef44c2887e664cb07c3605ffec378177a8b/mcp-stellar-xdr.ts"
+      ]
+    },
+    "solana-docs": {
+      "type": "streamable-http",
+      "url": "https://mcp.solana.com"
+    },
+    "base-docs": {
+      "type": "streamable-http",
+      "url": "https://docs.base.org/mcp"
+    }
+  }
+}

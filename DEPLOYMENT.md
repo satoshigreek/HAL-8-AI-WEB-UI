@@ -100,6 +100,44 @@ every model access to the Apex Fusion tri-chain:
 Register it once in **Admin Panel → Settings → Tools** as an OpenAPI tool
 server with URL `http://apex-tools:8000` (no auth), available to all users.
 
+## Blockchain chain tools (read-only)
+
+A third internal-only sidecar, **blockchain-tools**, bridges the official
+first-party MCP servers of six more ecosystems to HAL 8's models — the same
+mcpo pattern as apex-tools, one route per chain:
+
+| Route | Tools |
+|---|---|
+| `http://blockchain-tools:8000/bnb` | BNB Chain reads: blocks, txs, balances, tokens, NFTs, contract reads, Greenfield queries (26 tools) |
+| `http://blockchain-tools:8000/ton` | TON mainnet reads: balances, history, jettons, NFTs, DNS, swap quotes, emulation (22 tools) |
+| `http://blockchain-tools:8000/near` | NEAR reads: accounts, balances, token search, contract inspection/read calls (10 tools) |
+| `http://blockchain-tools:8000/stellar-xdr` | Stellar XDR encode/decode (5 tools) |
+| `http://blockchain-tools:8000/solana-docs` | Solana developer docs search + program analysis |
+| `http://blockchain-tools:8000/base-docs` | Base (Coinbase L2) documentation search |
+
+**Read-only by construction**: every transfer/signing/wallet/key tool is
+listed in `disabledTools` in [`deploy/blockchain-tools.json`](deploy/blockchain-tools.json)
+and gets no HTTP route at all (requests 404). No private keys, mnemonics or
+wallets exist on the server. `tests/blockchain-mcp/test_site_bridge.py`
+keeps the disabled list in sync with `config/blockchain-tool-policy.yaml`.
+The Base *wallet* MCP (mcp.base.org) is intentionally not bridged — it
+authenticates per-human via Base Account OAuth and must not be shared by a
+multi-user site.
+
+Register all six routes at once with the admin API:
+
+```
+HAL8_ADMIN_KEY=sk-... python3 scripts/register-blockchain-tool-servers.py
+```
+
+(or add each URL manually in **Admin Panel → Settings → Tools**, path
+`openapi.json`, no auth). Package versions are exact-pinned; to upgrade, see
+`docs/blockchain-mcp.md` → Upgrade procedure.
+
+Note: the sidecar starts four Node.js MCP processes (~0.5 GB RSS combined).
+On the 4 GB Lightsail instance keep an eye on `free -m` after deploying; if
+memory gets tight, add a swapfile or upgrade the instance tier.
+
 ## Connecting models
 
 HAL 8 serves the interface; it needs at least one model provider. In

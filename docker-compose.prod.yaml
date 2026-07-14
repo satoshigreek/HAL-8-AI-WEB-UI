@@ -54,6 +54,23 @@ services:
     expose:
       - "8000"
 
+  # blockchain-tools — mcpo again, this time bridging the first-party
+  # blockchain MCP servers (BNB Chain, TON, NEAR, Stellar XDR, Solana docs,
+  # Base docs) to OpenAPI for HAL 8's models. READ-ONLY by construction:
+  # every signing/transfer/wallet/key tool is listed in disabledTools in
+  # deploy/blockchain-tools.json and gets no HTTP route at all. No private
+  # keys, mnemonics or wallets are configured. Internal-only (no published
+  # ports). Register the six routes once with
+  # scripts/register-blockchain-tool-servers.py — see DEPLOYMENT.md.
+  blockchain-tools:
+    image: ghcr.io/open-webui/mcpo:main
+    restart: unless-stopped
+    command: --port 8000 --config /app/blockchain-tools.json
+    volumes:
+      - ./deploy/blockchain-tools.json:/app/blockchain-tools.json:ro
+    expose:
+      - "8000"
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped

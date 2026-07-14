@@ -58,6 +58,16 @@ that exist in a discovered manifest get a mapping (Base wallet tools stay
 unmapped until OAuth-gated discovery completes). Native names are preserved
 for diagnostics and audit records.
 
+## Site-facing bridge (HAL 8 models)
+
+The read-only subset of these servers is also exposed to the deployed HAL 8
+site's models via the `blockchain-tools` mcpo sidecar
+(`docker-compose.prod.yaml` + `deploy/blockchain-tools.json`) and registered
+as OpenAPI tool servers — see `DEPLOYMENT.md` → "Blockchain chain tools".
+Write/signing/wallet tools are disabled at the bridge (no routes exist), and
+the Base wallet MCP is not bridged (per-user OAuth). The harness setup below
+is independent of the site bridge.
+
 ## Installation
 
 The project-scoped config is committed as `.mcp.json` — cloning the repo and
